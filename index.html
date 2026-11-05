@@ -1,0 +1,1708 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prozess-Studio</title>
+<link rel="stylesheet" href="https://unpkg.com/bpmn-js@17.11.1/dist/assets/diagram-js.css">
+<link rel="stylesheet" href="https://unpkg.com/bpmn-js@17.11.1/dist/assets/bpmn-js.css">
+<link rel="stylesheet" href="https://unpkg.com/bpmn-js@17.11.1/dist/assets/bpmn-font/css/bpmn-embedded.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-shared.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-drd.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-decision-table.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-decision-table-controls.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-literal-expression.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-boxed-expression.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-js-boxed-expression-controls.css">
+<link rel="stylesheet" href="https://unpkg.com/dmn-js@17.12.3/dist/assets/dmn-font/css/dmn-embedded.css">
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --line: #e1e4e8; --text: #1f2328; --muted: #656d76;
+    --accent: #0a6ed1; --accent-soft: #e8f1fb; --danger: #c62828; --warn: #b26a00; --ok: #2e7d32;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font: 14px/1.4 system-ui, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); }
+  button, input, textarea, select { font: inherit; color: inherit; }
+
+  /* Layout */
+  #app { --lw: 230px; --rw: 300px; display: grid; grid-template-rows: 52px 1fr 26px; grid-template-columns: var(--lw) 1fr var(--rw); height: 100vh; }
+  #app.no-left { --lw: 36px; }
+  #app.no-right { --rw: 36px; }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  aside { background: var(--panel); overflow: auto; min-width: 0; }
+  body { overflow: hidden; }
+  #left { border-right: 1px solid var(--line); grid-area: 2 / 1; }
+  #right { border-left: 1px solid var(--line); grid-area: 2 / 3; }
+
+  /* Collapsed sidebar = narrow rail with a vertical label */
+  .rail { display: none; width: 100%; height: 100%; border: 0; background: var(--panel); cursor: pointer; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; color: var(--muted); }
+  .rail:hover { background: var(--bg); color: var(--accent); }
+  .rail svg { width: 16px; height: 16px; flex: none; }
+  .rail-label { writing-mode: vertical-rl; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  #app.no-left #left > :not(.rail), #app.no-right #right > :not(.rail) { display: none; }
+  #app.no-left #left > .rail, #app.no-right #right > .rail { display: flex; }
+
+  /* Collapsible sections */
+  .sec-head { cursor: pointer; user-select: none; }
+  .sec-head:hover .t, .sec-head:hover .chev, .sec-head:focus-visible .t { color: var(--text); }
+  .sec-head .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chev { width: 12px; height: 12px; flex: none; transition: transform .15s; }
+  .sec.collapsed .chev { transform: rotate(-90deg); }
+  .sec.collapsed .sec-body { display: none; }
+  .sec.collapsed h3 { margin-bottom: 0; }
+  .icon-btn { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 2px 4px; border-radius: 4px; display: inline-flex; }
+  .icon-btn:hover { background: var(--bg); color: var(--accent); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  #canvas { position: relative; background: #fff; min-width: 0; grid-area: 2 / 2; overflow: hidden; }
+  footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 0 12px; font-size: 12px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line); }
+
+  /* Toolbar */
+  .brand { font-weight: 700; margin-right: 8px; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .brand span { color: var(--accent); }
+  #docName { border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; width: 220px; font-weight: 600; background: transparent; }
+  #docName:hover, #docName:focus { border-color: var(--line); background: #fff; outline: none; }
+  .sep { width: 1px; height: 26px; background: var(--line); margin: 0 6px; flex: none; }
+  .tb { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 6px 9px; cursor: pointer; white-space: nowrap; }
+  .tb:hover { background: var(--bg); border-color: var(--line); }
+  .tb.on { background: var(--accent-soft); border-color: #b9d4f1; color: var(--accent); }
+  .tb svg { width: 16px; height: 16px; flex: none; }
+  .badge { min-width: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; line-height: 18px; text-align: center; background: var(--line); color: var(--muted); }
+  .badge.err { background: var(--danger); color: #fff; }
+  .badge.warn { background: var(--warn); color: #fff; }
+  .spacer { flex: 1; }
+  header { scrollbar-width: none; }
+  @media (max-width: 1280px) { .tb .lbl { display: none; } #docName { width: 160px; } }
+  @media (max-width: 760px) { .brand { display: none; } }
+
+  /* Sidebars */
+  .sec { padding: 12px; border-bottom: 1px solid var(--line); }
+  .sec h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .doc-item { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 6px; cursor: pointer; }
+  .doc-item:hover { background: var(--bg); }
+  .doc-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .doc-item .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-item .d { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .doc-item .x { visibility: hidden; border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 4px; }
+  .doc-item:hover .x { visibility: visible; }
+  .doc-item .x:hover { color: var(--danger); }
+  .small-btn { border: 1px solid var(--line); background: #fff; border-radius: 5px; padding: 2px 8px; cursor: pointer; font-size: 12px; text-transform: none; letter-spacing: 0; }
+  .small-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tips { font-size: 12.5px; color: var(--muted); }
+  .tips p { margin: 0 0 8px; }
+  kbd { font: 11px ui-monospace, monospace; padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: #fafbfc; color: var(--text); }
+
+  /* Properties */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .field input[type=text], .field textarea, .field select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .field .hint { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .type-pill { display: inline-block; padding: 3px 9px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+  .sw:hover { box-shadow: 0 0 0 2px var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .empty { color: var(--muted); font-size: 13px; }
+
+  /* Issues */
+  .issue { display: flex; gap: 8px; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .issue:hover { background: var(--bg); }
+  .issue .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; }
+  .issue.error .dot { background: var(--danger); }
+  .issue.warn .dot { background: var(--warn); }
+  .ok-msg { color: var(--ok); font-size: 13px; }
+
+  /* Modal + toast */
+  .modal-bg { position: fixed; inset: 0; background: rgba(15, 20, 30, .35); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 10px; width: min(640px, calc(100vw - 32px)); max-height: 85vh; overflow: auto; padding: 22px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .modal h2 { margin: 0 0 12px; font-size: 18px; }
+  .modal table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .modal td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .modal td:first-child { white-space: nowrap; width: 1%; padding-right: 14px; }
+  #toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #1f2328; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 200; }
+  #toast.show { opacity: 1; }
+  #dropHint { position: absolute; inset: 12px; border: 3px dashed var(--accent); border-radius: 12px; background: rgba(10,110,209,.06); display: none; align-items: center; justify-content: center; font-size: 18px; color: var(--accent); z-index: 50; pointer-events: none; }
+  #dropHint.show { display: flex; }
+
+  /* bpmn-js tweaks */
+  .djs-palette { top: 12px; left: 12px; border-radius: 8px; border-color: var(--line); background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+
+  /* Palette: always two columns, with the name under each symbol */
+  .djs-palette.open, .djs-palette.two-column.open { width: 168px; padding: 4px; }
+  .djs-palette .djs-palette-entries { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .djs-palette .djs-palette-entries .group { display: contents; }
+  .djs-palette .group .separator { grid-column: 1 / -1; margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }
+  .djs-palette .entry {
+    float: none; width: auto; height: auto; display: flex; flex-direction: column; align-items: center;
+    padding: 6px 2px 5px; border-radius: 6px; font-size: 26px; line-height: 1;
+  }
+  .djs-palette .entry:hover { background: var(--accent-soft); }
+  .djs-palette .entry::before { line-height: 1; }
+  .djs-palette .entry::after {
+    content: attr(title); margin-top: 4px; font: 11px/1.2 system-ui, "Segoe UI", sans-serif;
+    color: var(--muted); text-align: center; white-space: normal;
+  }
+  .djs-palette .entry:hover::after { color: var(--accent); }
+  .djs-palette .entry[data-action="hand-tool"]::after { content: "Hand"; }
+  .djs-palette .entry[data-action="lasso-tool"]::after { content: "Auswählen"; }
+  .djs-palette .entry[data-action="space-tool"]::after { content: "Platz schaffen"; }
+  .djs-palette .entry[data-action="global-connect-tool"]::after { content: "Verbinden"; }
+  .djs-palette .entry[data-action="create.start-event"]::after { content: "Start"; }
+  .djs-palette .entry[data-action="create.intermediate-event"]::after { content: "Zwischen\00AD ereignis"; }
+  .djs-palette .entry[data-action="create.end-event"]::after { content: "Ende"; }
+  .djs-palette .entry[data-action="create.exclusive-gateway"]::after { content: "Gateway"; }
+  .djs-palette .entry[data-action="create.task"]::after { content: "Aufgabe"; }
+  .djs-palette .entry[data-action="create.subprocess-expanded"]::after { content: "Teilprozess"; }
+  .djs-palette .entry[data-action="create.data-object"]::after { content: "Datenobjekt"; }
+  .djs-palette .entry[data-action="create.data-store"]::after { content: "Datenspeicher"; }
+  .djs-palette .entry[data-action="create.participant-expanded"]::after { content: "Pool"; }
+  .djs-palette .entry[data-action="create.group"]::after { content: "Gruppe"; }
+  .djs-palette .djs-palette-toggle { display: none; }
+  .djs-palette .entry[data-action="quick-menu"] {
+    grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 6px; padding: 7px 4px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .djs-palette .entry[data-action="quick-menu"]:hover { background: #d6e7f8; }
+  .djs-palette .entry[data-action="quick-menu"]::before { content: "+"; font: 600 20px/1 system-ui, sans-serif; }
+  .djs-palette .entry[data-action="quick-menu"]::after { content: "Alle Elemente  N"; margin-top: 0; font-size: 12px; font-weight: 600; color: var(--accent); white-space: pre; }
+
+  /* Quick menu: searchable list of every element type */
+  .qm { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100% - 24px)); max-height: calc(100% - 28px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.18); z-index: 1000; }
+  .qm[hidden] { display: none; }
+  .qm-search { padding: 10px; border-bottom: 1px solid var(--line); }
+  .qm-search input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+  .qm-search input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .qm-hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .qm-hint b { color: var(--text); }
+  .qm-list { overflow: auto; padding: 2px 6px 8px; }
+  .qm-group { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 8px 4px; }
+  .qm-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+  .qm-item .ic { font-size: 26px; width: 30px; text-align: center; line-height: 1; flex: none; }
+  .qm-item .sub { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .qm-item.active { background: var(--accent-soft); }
+  .qm-item.active .ic, .qm-item.active .lbl { color: var(--accent); }
+  .qm-item.off { opacity: .45; }
+  .qm-empty { padding: 16px; color: var(--muted); text-align: center; }
+  .djs-context-pad .entry { border-radius: 4px; }
+  .lint-mark { width: 16px; height: 16px; border-radius: 50%; color: #fff; font: bold 11px/16px system-ui; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .lint-mark.error { background: var(--danger); }
+  .lint-mark.warn { background: var(--warn); }
+  #app:not(.show-lint) .lint-mark { display: none; }
+
+  /* ---------- Business rules (DMN) ---------- */
+  #app.mode-dmn #canvas > .bjs-container { display: none !important; }
+  #app.mode-dmn .bpmn-only, #app:not(.mode-dmn) .dmn-only { display: none !important; }
+  #dmnWrap { position: absolute; inset: 0; display: flex; flex-direction: column; background: #fff; }
+  #dmnWrap[hidden] { display: none; }
+  .dmn-tabs { display: flex; gap: 4px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; flex: none; scrollbar-width: thin; }
+  .dmn-tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; font-size: 13px; }
+  .dmn-tab:hover { background: var(--bg); border-color: var(--line); }
+  .dmn-tab.on { background: var(--accent-soft); border-color: #b9d4f1; color: var(--accent); font-weight: 600; }
+  .dmn-tab .k { font-size: 10.5px; color: var(--muted); font-weight: 400; }
+  .dmn-tab svg { width: 14px; height: 14px; flex: none; }
+  .dmn-back { color: var(--accent); }
+  #dmnCanvas { position: relative; flex: 1; min-height: 0; overflow: auto; }
+  #dmnCanvas .view-drd { display: none; } /* the tab bar already links to the overview */
+  #dmnCanvas .dmn-decision-table-container, #dmnCanvas .dmn-literal-expression-container, #dmnCanvas .dmn-boxed-expression-container { padding: 24px 28px; font-family: system-ui, "Segoe UI", sans-serif; }
+  .doc-item .tag { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: var(--line); color: var(--muted); flex: none; }
+  .doc-item .tag.dmn { background: #fff3e0; color: #b26a00; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .hp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .hp-table td { padding: 4px 3px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .hp-table td:first-child { font-weight: 700; width: 1%; white-space: nowrap; padding-right: 8px; }
+  .hp-table tr.on td { background: var(--accent-soft); color: var(--accent); }
+  .link-list { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+  .link-list li { padding: 5px 6px; border-radius: 5px; cursor: pointer; }
+  .link-list li:hover { background: var(--bg); color: var(--accent); }
+  .link-list .d { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app" class="show-lint">
+  <header>
+    <div class="brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a6ed1" stroke-width="2"><circle cx="4.5" cy="12" r="2.5"/><rect x="9" y="8" width="7" height="8" rx="1.5"/><path d="M7 12h2M16 12h2"/><circle cx="20.5" cy="12" r="2.5" stroke-width="3"/></svg>Prozess<span>Studio</span></div>
+    <input id="docName" title="Diagrammname (klicken zum Umbenennen)" spellcheck="false">
+    <div class="sep"></div>
+    <button class="tb" id="btnNew" title="Neues Diagramm (Alt+N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15h6"/></svg><span class="lbl">Neuer Prozess</span></button>
+    <button class="tb" id="btnNewDmn" title="Neue Entscheidungstabelle / Geschäftsregel (DMN)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/></svg><span class="lbl">Neue Regel</span></button>
+    <button class="tb" id="btnOpen" title="BPMN- oder DMN-Datei öffnen (Ctrl+O)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Öffnen</span></button>
+    <button class="tb" id="btnSave" title="Datei herunterladen (Ctrl+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span id="saveExt">.bpmn</span></button>
+    <button class="tb bpmn-only" id="btnSvg" title="Als SVG-Bild exportieren">SVG</button>
+    <button class="tb bpmn-only" id="btnPng" title="Als PNG-Bild exportieren">PNG</button>
+    <div class="sep"></div>
+    <button class="tb" id="btnUndo" title="Rückgängig (Ctrl+Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="tb" id="btnRedo" title="Wiederholen (Ctrl+Y)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+    <button class="tb" id="btnFit" title="Ganzes Diagramm anzeigen (Ctrl+0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <div class="sep bpmn-only"></div>
+    <button class="tb on bpmn-only" id="btnAuto" title="Neue Elemente automatisch mit dem ausgewählten Element verbinden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h12M12 7l5 5-5 5"/><circle cx="20" cy="12" r="1.5"/></svg><span class="lbl">Auto-Verbinden</span></button>
+    <button class="tb bpmn-only" id="btnCat" title="Elemente automatisch nach Kategorie einfärben (Ereignisse, Aufgaben, Gateways …)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="3"/><rect x="13" y="5" width="7" height="6" rx="1.5"/><path d="m7 14 3 3-3 3-3-3z"/><path d="M14 17h6"/></svg><span class="lbl">Farben</span></button>
+    <button class="tb bpmn-only" id="btnChain" title="Ausgewählte Elemente der Reihe nach verbinden (V)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="6" height="6" rx="1"/><rect x="16" y="9" width="6" height="6" rx="1"/><path d="M8 12h8"/></svg><span class="lbl">Verbinden</span></button>
+    <button class="tb" id="btnLint" title="Modell prüfen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span class="lbl">Prüfen</span> <span class="badge" id="lintBadge">0</span></button>
+    <div class="spacer"></div>
+    <button class="tb" id="btnLeft" title="Diagrammliste ein-/ausblenden">☰</button>
+    <button class="tb" id="btnRight" title="Eigenschaften ein-/ausblenden">⚙</button>
+    <button class="tb" id="btnHelp" title="Hilfe & Tastenkürzel (?)">?</button>
+  </header>
+
+  <aside id="left">
+    <button class="rail" data-panel="left" title="Seitenleiste ausklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg><span class="rail-label">Meine Diagramme</span></button>
+    <div class="sec" data-sec="docs">
+      <h3 class="sec-head" tabindex="0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg><span class="t">Meine Diagramme</span>
+        <button class="small-btn" id="btnNew2" title="Neuer Prozess (BPMN)">+ Prozess</button>
+        <button class="small-btn" id="btnNewDmn2" title="Neue Entscheidungstabelle (DMN)">+ Regel</button>
+        <button class="icon-btn" data-panel="left" title="Seitenleiste einklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg></button></h3>
+      <div class="sec-body" id="docList"></div>
+    </div>
+    <div class="sec tips" data-sec="tips">
+      <h3 class="sec-head" tabindex="0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg><span class="t">Schnellstart</span></h3>
+      <div class="sec-body">
+        <p>Element anklicken → im Kontextmenü daneben z.&nbsp;B. <b>Aufgabe anhängen</b>: das neue Element ist sofort verbunden.</p>
+        <p>Mit <b>Auto-Verbinden</b> wird auch alles aus der linken Palette automatisch an das ausgewählte Element angehängt.</p>
+        <p>Mehrere Elemente mit <kbd>Shift</kbd>+Klick wählen, dann <kbd>V</kbd>: werden von links nach rechts verbunden.</p>
+        <p><kbd>N</kbd> oder <b>+ Alle Elemente</b> = Schnellmenü mit allen Typen (Zeit-, Nachrichten-, Randereignisse …) inkl. Suche.</p>
+        <p>Doppelklick = beschriften. <kbd>R</kbd> auf Element = Typ ändern.</p>
+        <p><b>Geschäftsregeln:</b> <b>+ Regel</b> legt eine Entscheidungstabelle (DMN) an. Eine <b>Geschäftsregelaufgabe</b> im Prozess lässt sich rechts unter Eigenschaften damit verknüpfen.</p>
+      </div>
+    </div>
+  </aside>
+
+  <main id="canvas">
+    <div id="dropHint">.bpmn- oder .dmn-Datei hier ablegen</div>
+    <div id="dmnWrap" hidden>
+      <div class="dmn-tabs" id="dmnTabs"></div>
+      <div id="dmnCanvas"></div>
+    </div>
+    <div id="qm" class="qm" hidden>
+      <div class="qm-search">
+        <input id="qmInput" type="text" placeholder="Element suchen … z. B. Zeit, Nachricht, Benutzer, Fehler" spellcheck="false" autocomplete="off">
+        <div class="qm-hint" id="qmHint"></div>
+      </div>
+      <div class="qm-list" id="qmList"></div>
+    </div>
+  </main>
+
+  <aside id="right">
+    <button class="rail" data-panel="right" title="Seitenleiste ausklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg><span class="rail-label">Eigenschaften</span></button>
+    <div class="sec" data-sec="props">
+      <h3 class="sec-head" tabindex="0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg><span class="t">Eigenschaften</span>
+        <button class="icon-btn" data-panel="right" title="Seitenleiste einklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg></button></h3>
+      <div class="sec-body" id="props"></div>
+    </div>
+    <div class="sec" data-sec="issues">
+      <h3 class="sec-head" tabindex="0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg><span class="t">Modellprüfung</span></h3>
+      <div class="sec-body" id="issues"></div>
+    </div>
+  </aside>
+
+  <footer>
+    <span id="saveState">Gespeichert</span>
+    <span id="stats"></span>
+    <span class="spacer"></span>
+    <span>Alles bleibt lokal in diesem Browser · BPMN 2.0 · DMN 1.3</span>
+  </footer>
+</div>
+
+<div class="modal-bg" id="help">
+  <div class="modal">
+    <h2>Hilfe & Tastenkürzel</h2>
+    <table>
+      <tr><td><b>Anhängen</b></td><td>Element wählen → Symbol im Kontextmenü klicken. Neues Element + Sequenzfluss entstehen in einem Schritt.</td></tr>
+      <tr><td><b>Auto-Verbinden</b></td><td>Ist es aktiv, wird jedes Element aus der Palette mit dem zuvor ausgewählten Element verbunden (Sequenz- oder Nachrichtenfluss, je nach Pool).</td></tr>
+      <tr><td><b>Farben</b></td><td>Färbt Elemente nach Kategorie ein (Start grün, Ende rot, Zwischenereignisse orange, Aufgaben blau, Teilprozesse violett, Gateways gelb, Daten grau). Nur Darstellung, die .bpmn-Datei bleibt unverändert; in SVG/PNG-Exporten erscheinen die Farben mit.</td></tr>
+      <tr><td><kbd>V</kbd></td><td>Ausgewählte Elemente der Reihe nach (links → rechts) verbinden</td></tr>
+      <tr><td><kbd>N</kbd></td><td>Schnellmenü: jedes Element suchen und einfügen. Ist ein Element ausgewählt, wird das neue angehängt und verbunden; Randereignisse werden an die ausgewählte Aufgabe geheftet.</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Typ des Elements ändern (z.&nbsp;B. Aufgabe → Benutzeraufgabe, Ereignis → Zeit-Ereignis)</td></tr>
+      <tr><td><kbd>E</kbd> / Doppelklick</td><td>Beschriftung bearbeiten</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Verbindungswerkzeug</td></tr>
+      <tr><td><kbd>H</kbd> / <kbd>L</kbd> / <kbd>S</kbd></td><td>Hand / Lasso / Platz schaffen</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Im Diagramm suchen</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>Rückgängig / Wiederholen</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>V</kbd></td><td>Kopieren / Einfügen</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>O</kbd></td><td>.bpmn herunterladen / öffnen</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>Ganzes Diagramm anzeigen</td></tr>
+      <tr><td><kbd>Entf</kbd></td><td>Auswahl löschen</td></tr>
+      <tr><td><b>Mausrad</b></td><td>Scrollen · mit <kbd>Ctrl</kbd> zoomen</td></tr>
+      <tr><td><b>Datei</b></td><td>.bpmn- und .dmn-Dateien (auch aus Signavio, Camunda, Bizagi) per Drag &amp; Drop aufs Canvas ziehen.</td></tr>
+    </table>
+    <h2 style="margin-top:20px">Geschäftsregeln (DMN)</h2>
+    <table>
+      <tr><td><b>Neue Regel</b></td><td>Legt eine Entscheidungstabelle an. Spalten <i>Wenn</i> = Eingaben (Bedingungen), <i>Dann</i> = Ausgaben (Ergebnis). Jede Zeile ist eine Regel.</td></tr>
+      <tr><td><b>Spaltenkopf</b></td><td>Anklicken, um Bezeichnung, Ausdruck (Variablenname) und Typ zu bearbeiten. Rechtsklick in die Tabelle = Zeilen/Spalten einfügen, kopieren, löschen.</td></tr>
+      <tr><td><b>Zellen</b></td><td>Texte in Anführungszeichen (<code>"Gold"</code>), Zahlen mit Vergleich (<code>&gt;= 1000</code>, <code>[100..500]</code>), <code>-</code> oder leer = egal.</td></tr>
+      <tr><td><b>Hit Policy</b></td><td>Links oben in der Tabelle: legt fest, was gilt, wenn mehrere Regeln zutreffen (U = genau eine, F = erste, C = alle sammeln …).</td></tr>
+      <tr><td><b>Übersicht (DRD)</b></td><td>Entscheidungsanforderungsdiagramm: mehrere Entscheidungen, Eingabedaten und Wissensquellen und ihre Abhängigkeiten. Tabellen-Symbol an einer Entscheidung öffnet deren Tabelle.</td></tr>
+      <tr><td><b>Verknüpfen</b></td><td>Im Prozess eine Geschäftsregelaufgabe wählen → rechts Entscheidung auswählen oder <b>+ Neue Entscheidungstabelle</b>. Gespeichert als <code>camunda:decisionRef</code> (Camunda-kompatibel).</td></tr>
+      <tr><td><b>Prüfen</b></td><td>Findet leere Regeln, fehlende Ergebnisse, doppelte Regeln bei Hit Policy U und Texte ohne Anführungszeichen.</td></tr>
+    </table>
+    <p style="text-align:right;margin:16px 0 0"><button class="small-btn" onclick="document.getElementById('help').classList.remove('show')">Schliessen</button></p>
+  </div>
+</div>
+<div id="toast"></div>
+<input type="file" id="fileInput" accept=".bpmn,.dmn,.xml" hidden>
+
+<script src="https://unpkg.com/bpmn-js@17.11.1/dist/bpmn-modeler.production.min.js"></script>
+<script src="https://unpkg.com/dmn-js@17.12.3/dist/dmn-modeler.production.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- German translations for bpmn-js UI ----------
+  const DE = {
+    'Activate hand tool': 'Hand-Werkzeug', 'Activate the hand tool': 'Hand-Werkzeug',
+    'Activate lasso tool': 'Lasso-Werkzeug', 'Activate the lasso tool': 'Lasso-Werkzeug',
+    'Activate create/remove space tool': 'Platz schaffen/entfernen', 'Activate the create/remove space tool': 'Platz schaffen/entfernen',
+    'Activate global connect tool': 'Verbindungswerkzeug', 'Activate the global connect tool': 'Verbindungswerkzeug',
+    'Create start event': 'Startereignis', 'Create StartEvent': 'Startereignis',
+    'Create intermediate/boundary event': 'Zwischen-/Randereignis', 'Create Intermediate/Boundary Event': 'Zwischen-/Randereignis',
+    'Create end event': 'Endereignis', 'Create EndEvent': 'Endereignis',
+    'Create gateway': 'Gateway', 'Create Gateway': 'Gateway',
+    'Create task': 'Aufgabe', 'Create Task': 'Aufgabe',
+    'Create data object reference': 'Datenobjekt', 'Create DataObjectReference': 'Datenobjekt',
+    'Create data store reference': 'Datenspeicher', 'Create DataStoreReference': 'Datenspeicher',
+    'Create expanded sub-process': 'Teilprozess (aufgeklappt)', 'Create expanded SubProcess': 'Teilprozess (aufgeklappt)',
+    'Create pool/participant': 'Pool / Teilnehmer', 'Create Pool/Participant': 'Pool / Teilnehmer',
+    'Create group': 'Gruppe', 'Create Group': 'Gruppe',
+    'Create element': 'Element erstellen',
+    'Append end event': 'Endereignis anhängen', 'Append EndEvent': 'Endereignis anhängen',
+    'Append gateway': 'Gateway anhängen', 'Append Gateway': 'Gateway anhängen',
+    'Append task': 'Aufgabe anhängen', 'Append Task': 'Aufgabe anhängen',
+    'Append intermediate/boundary event': 'Zwischenereignis anhängen', 'Append Intermediate/Boundary Event': 'Zwischenereignis anhängen',
+    'Append text annotation': 'Anmerkung anhängen', 'Append TextAnnotation': 'Anmerkung anhängen',
+    'Append element': 'Weiteres Element anhängen', 'Append compensation activity': 'Kompensationsaktivität anhängen',
+    'Append receive task': 'Empfangsaufgabe anhängen', 'Append message intermediate catch event': 'Nachrichtenereignis anhängen',
+    'Append timer intermediate catch event': 'Zeitereignis anhängen', 'Append condition intermediate catch event': 'Bedingungsereignis anhängen',
+    'Append signal intermediate catch event': 'Signalereignis anhängen',
+    'Change element': 'Typ ändern', 'Change type': 'Typ ändern',
+    'Delete': 'Löschen', 'Remove': 'Löschen',
+    'Connect to other element': 'Verbinden', 'Connect using sequence/message flow or association': 'Verbinden',
+    'Connect using association': 'Mit Assoziation verbinden', 'Connect using data input association': 'Mit Datenassoziation verbinden',
+    'Add lane above': 'Lane oberhalb hinzufügen', 'Add lane below': 'Lane unterhalb hinzufügen',
+    'Divide into two lanes': 'In zwei Lanes teilen', 'Divide into three lanes': 'In drei Lanes teilen',
+    'Add text annotation': 'Anmerkung hinzufügen',
+    'Search in diagram': 'Im Diagramm suchen',
+    // replace menu
+    'Task': 'Aufgabe', 'User task': 'Benutzeraufgabe', 'Service task': 'Serviceaufgabe', 'Send task': 'Sendeaufgabe',
+    'Receive task': 'Empfangsaufgabe', 'Manual task': 'Manuelle Aufgabe', 'Business rule task': 'Geschäftsregelaufgabe',
+    'Script task': 'Skriptaufgabe', 'Call activity': 'Aufrufaktivität',
+    'Sub-process (collapsed)': 'Teilprozess (zugeklappt)', 'Sub-process (expanded)': 'Teilprozess (aufgeklappt)',
+    'Sub-process': 'Teilprozess', 'Event sub-process': 'Ereignis-Teilprozess', 'Transaction': 'Transaktion',
+    'Ad-hoc sub-process': 'Ad-hoc-Teilprozess', 'Ad-hoc sub-process (collapsed)': 'Ad-hoc-Teilprozess (zugeklappt)', 'Ad-hoc sub-process (expanded)': 'Ad-hoc-Teilprozess (aufgeklappt)',
+    'Exclusive gateway': 'Exklusives Gateway (XOR)', 'Parallel gateway': 'Paralleles Gateway (AND)',
+    'Inclusive gateway': 'Inklusives Gateway (OR)', 'Complex gateway': 'Komplexes Gateway',
+    'Event-based gateway': 'Ereignisbasiertes Gateway',
+    'Start event': 'Startereignis', 'Intermediate throw event': 'Auslösendes Zwischenereignis', 'End event': 'Endereignis',
+    'Message start event': 'Nachrichten-Startereignis', 'Timer start event': 'Zeit-Startereignis',
+    'Conditional start event': 'Bedingungs-Startereignis', 'Signal start event': 'Signal-Startereignis',
+    'Error start event': 'Fehler-Startereignis', 'Escalation start event': 'Eskalations-Startereignis',
+    'Compensation start event': 'Kompensations-Startereignis',
+    'Message start event (non-interrupting)': 'Nachrichten-Start (nicht unterbrechend)', 'Timer start event (non-interrupting)': 'Zeit-Start (nicht unterbrechend)',
+    'Conditional start event (non-interrupting)': 'Bedingungs-Start (nicht unterbrechend)', 'Signal start event (non-interrupting)': 'Signal-Start (nicht unterbrechend)',
+    'Escalation start event (non-interrupting)': 'Eskalations-Start (nicht unterbrechend)',
+    'Message intermediate catch event': 'Nachricht empfangen (Zwischen)', 'Message intermediate throw event': 'Nachricht senden (Zwischen)',
+    'Timer intermediate catch event': 'Zeit-Zwischenereignis', 'Escalation intermediate throw event': 'Eskalation (Zwischen)',
+    'Conditional intermediate catch event': 'Bedingungs-Zwischenereignis', 'Link intermediate catch event': 'Link empfangen',
+    'Link intermediate throw event': 'Link auslösen', 'Compensation intermediate throw event': 'Kompensation auslösen (Zwischen)',
+    'Signal intermediate catch event': 'Signal empfangen (Zwischen)', 'Signal intermediate throw event': 'Signal senden (Zwischen)',
+    'Message end event': 'Nachrichten-Endereignis', 'Escalation end event': 'Eskalations-Endereignis', 'Error end event': 'Fehler-Endereignis',
+    'Cancel end event': 'Abbruch-Endereignis', 'Compensation end event': 'Kompensations-Endereignis', 'Signal end event': 'Signal-Endereignis',
+    'Terminate end event': 'Terminierungs-Endereignis',
+    'Message boundary event': 'Nachrichten-Randereignis', 'Timer boundary event': 'Zeit-Randereignis', 'Escalation boundary event': 'Eskalations-Randereignis',
+    'Conditional boundary event': 'Bedingungs-Randereignis', 'Error boundary event': 'Fehler-Randereignis', 'Cancel boundary event': 'Abbruch-Randereignis',
+    'Signal boundary event': 'Signal-Randereignis', 'Compensation boundary event': 'Kompensations-Randereignis',
+    'Message boundary event (non-interrupting)': 'Nachrichten-Rand (nicht unterbrechend)', 'Timer boundary event (non-interrupting)': 'Zeit-Rand (nicht unterbrechend)',
+    'Escalation boundary event (non-interrupting)': 'Eskalations-Rand (nicht unterbrechend)', 'Conditional boundary event (non-interrupting)': 'Bedingungs-Rand (nicht unterbrechend)',
+    'Signal boundary event (non-interrupting)': 'Signal-Rand (nicht unterbrechend)',
+    'Sequence flow': 'Sequenzfluss', 'Default flow': 'Standardfluss', 'Conditional flow': 'Bedingter Fluss',
+    'Data store reference': 'Datenspeicher', 'Data object reference': 'Datenobjekt',
+    'Expanded pool/participant': 'Pool (aufgeklappt)', 'Empty pool/participant': 'Pool (zugeklappt)',
+    'Loop': 'Schleife', 'Parallel multi-instance': 'Parallele Mehrfachinstanz', 'Sequential multi-instance': 'Sequenzielle Mehrfachinstanz',
+    'Compensation': 'Kompensation', 'Ad-hoc': 'Ad-hoc',
+    'Toggle loop': 'Schleife', 'Toggle parallel multi-instance': 'Parallele Mehrfachinstanz', 'Toggle sequential multi-instance': 'Sequenzielle Mehrfachinstanz',
+    'Toggle compensation': 'Kompensation', 'Toggle ad-hoc': 'Ad-hoc',
+    'Search': 'Suchen', 'No results': 'Keine Treffer', 'Gateways': 'Gateways', 'Tasks': 'Aufgaben', 'Events': 'Ereignisse',
+    'Sub-processes': 'Teilprozesse', 'Data': 'Daten', 'Participants': 'Teilnehmer', 'Other': 'Weitere',
+    // DMN (decision requirements diagram + decision table)
+    'Create decision': 'Entscheidung', 'Create input data': 'Eingabedaten', 'Create knowledge model': 'Wissensmodell',
+    'Create knowledge source': 'Wissensquelle', 'Append decision': 'Entscheidung anhängen', 'Append input data': 'Eingabedaten anhängen',
+    'Append business knowledge model': 'Wissensmodell anhängen', 'Append knowledge source': 'Wissensquelle anhängen',
+    'Add input': 'Eingabe hinzufügen', 'Add output': 'Ausgabe hinzufügen', 'Add rule': 'Regel hinzufügen',
+    'Add rule above': 'Regel oberhalb einfügen', 'Add rule below': 'Regel unterhalb einfügen', 'Remove rule': 'Regel löschen',
+    'Copy rule': 'Regel kopieren', 'Cut rule': 'Regel ausschneiden', 'Paste rule above': 'Regel oberhalb einfügen (Ablage)',
+    'Paste rule below': 'Regel unterhalb einfügen (Ablage)', 'Move rule': 'Regel verschieben',
+    'Add input column left': 'Eingabespalte links einfügen', 'Add input column right': 'Eingabespalte rechts einfügen',
+    'Add output column left': 'Ausgabespalte links einfügen', 'Add output column right': 'Ausgabespalte rechts einfügen',
+    'Remove input column': 'Eingabespalte löschen', 'Remove output column': 'Ausgabespalte löschen',
+    'Copy input column': 'Eingabespalte kopieren', 'Cut input column': 'Eingabespalte ausschneiden',
+    'Copy output column': 'Ausgabespalte kopieren', 'Cut output column': 'Ausgabespalte ausschneiden',
+    'Paste input column left': 'Eingabespalte links einfügen (Ablage)', 'Paste input column right': 'Eingabespalte rechts einfügen (Ablage)',
+    'Paste output column left': 'Ausgabespalte links einfügen (Ablage)', 'Paste output column right': 'Ausgabespalte rechts einfügen (Ablage)',
+    'Hit policy': 'Hit Policy (Trefferregel)', 'Input': 'Eingabe', 'Output': 'Ausgabe', 'Annotation': 'Anmerkung', 'Annotations': 'Anmerkungen',
+    'When': 'Wenn', 'And': 'Und', 'Then': 'Dann',
+    'Input label': 'Bezeichnung', 'Input expression': 'Ausdruck (Variable)', 'Input type': 'Datentyp', 'Input values': 'Erlaubte Werte',
+    'Output label': 'Bezeichnung', 'Output name': 'Ergebnisvariable', 'Output type': 'Datentyp', 'Output values': 'Erlaubte Werte',
+    'Expression language': 'Ausdruckssprache', 'Type': 'Typ', 'Value': 'Wert', 'Values': 'Werte', 'Name': 'Name', 'Expression': 'Ausdruck',
+    'Predefined values': 'Vordefinierte Werte', 'Add predefined values': 'Vordefinierte Werte hinzufügen',
+    'Clear predefined values': 'Vordefinierte Werte entfernen', 'Add values': 'Werte hinzufügen', 'No values': 'Keine Werte',
+    'Custom values': 'Eigene Werte', 'Yes': 'Ja', 'No': 'Nein', 'Match one': 'Einer davon', 'Match none': 'Keiner davon',
+    'Comparison': 'Vergleich', 'Range': 'Bereich', 'Equals': 'Gleich', 'Less': 'Kleiner', 'Less or equals': 'Kleiner gleich',
+    'Greater': 'Grösser', 'Greater or equals': 'Grösser gleich', 'Include': 'Einschliessen', 'Exclude': 'Ausschliessen',
+    'Between': 'Zwischen', 'Before': 'Vor', 'After': 'Nach', 'Exactly': 'Genau', 'Date': 'Datum', 'Time': 'Zeit',
+    'Start value': 'Startwert', 'End value': 'Endwert', 'Set value': 'Wert setzen', 'String value': 'Textwert',
+    'Boolean value': 'Wahrheitswert', 'Date value': 'Datum', 'Time value': 'Uhrzeit', 'Edit string': 'Text bearbeiten',
+    'Edit number': 'Zahl bearbeiten', 'Edit boolean': 'Wahrheitswert bearbeiten', 'Edit date': 'Datum bearbeiten',
+    'Edit input': 'Eingabe bearbeiten', 'Edit output': 'Ausgabe bearbeiten', 'Edit': 'Bearbeiten',
+    'View DRD': 'Zur Übersicht (DRD)', 'Open decision table': 'Entscheidungstabelle öffnen', 'Open literal expression': 'Ausdruck öffnen',
+    'Decision name': 'Name der Entscheidung', 'Definition name': 'Name', 'Definition ID': 'ID', 'Element name': 'Name',
+    'Add cell description': 'Beschreibung hinzufügen', 'Remove cell description': 'Beschreibung entfernen',
+    'Enter expression': 'Ausdruck eingeben', 'Literal expression': 'Literaler Ausdruck', 'Variable name': 'Variablenname',
+    'Variable type': 'Variablentyp', 'Result type': 'Ergebnistyp', 'Use today': 'Heute', 'Use now': 'Jetzt',
+    'Strings must be in double quotes': 'Texte müssen in doppelten Anführungszeichen stehen', 'Decision table': 'Entscheidungstabelle'
+  };
+  function translate(template, replacements) {
+    replacements = replacements || {};
+    template = DE[template] || template;
+    return template.replace(/{([^}]+)}/g, (_, key) => replacements[key] !== undefined ? replacements[key] : '{' + key + '}');
+  }
+
+  // Extra palette button that opens the quick menu
+  function QuickPaletteProvider(palette) { palette.registerProvider(2000, this); }
+  QuickPaletteProvider.$inject = ['palette'];
+  QuickPaletteProvider.prototype.getPaletteEntries = function () {
+    return {
+      'quick-menu': {
+        group: 'quick', className: 'qm-entry', title: 'Alle Elemente suchen und einfügen (N)',
+        action: { click: () => openQuickMenu() }
+      },
+      'quick-separator': { group: 'quick', separator: true }
+    };
+  };
+
+  // ---------- Modeler ----------
+  const modeler = new BpmnJS({
+    container: '#canvas',
+    keyboard: { bindTo: document },
+    // text stays dark even when an element gets a coloured border
+    bpmnRenderer: { defaultLabelColor: '#1f2328' },
+    additionalModules: [
+      { translate: ['value', translate] },
+      { __init__: ['quickPaletteProvider'], quickPaletteProvider: ['type', QuickPaletteProvider] }
+    ]
+  });
+  window.modeler = modeler; // handy for the browser console
+
+  // Business rules: DMN modeler (decision requirements diagram + decision tables)
+  // (additionalModules must be given per view: dmn-js replaces the ones from `common`)
+  const dmnView = () => ({ additionalModules: [{ translate: ['value', translate] }] });
+  const dmnModeler = new DmnJS({
+    container: '#dmnCanvas',
+    drd: dmnView(), decisionTable: dmnView(), literalExpression: dmnView(), boxedExpression: dmnView()
+  });
+  window.dmnModeler = dmnModeler;
+  const CAMUNDA_NS = 'http://camunda.org/schema/1.0/bpmn';
+  let mode = 'bpmn'; // which editor is showing: 'bpmn' or 'dmn'
+  const $ = id => document.getElementById(id);
+  const eventBus = modeler.get('eventBus');
+  const modeling = modeler.get('modeling');
+  const selection = modeler.get('selection');
+  const registry = modeler.get('elementRegistry');
+  const canvas = modeler.get('canvas');
+  const commandStack = modeler.get('commandStack');
+  const rules = modeler.get('rules');
+  const bpmnFactory = modeler.get('bpmnFactory');
+  const overlays = modeler.get('overlays');
+
+  const is = (el, type) => !!(el && el.businessObject && el.businessObject.$instanceOf && el.businessObject.$instanceOf(type));
+  const typeName = el => (el.businessObject.$type || el.type).replace('bpmn:', '');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- Storage (multiple diagrams in localStorage) ----------
+  const STORE = 'prozessStudio.docs', CURRENT = 'prozessStudio.current';
+  const memStore = {};
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return memStore[k] ?? null; } },
+    set(k, v) {
+      try { localStorage.setItem(k, v); return true; }
+      catch (e) { memStore[k] = v; return e.name !== 'QuotaExceededError'; }
+    }
+  };
+  let docs = [], currentId = null;
+  try { docs = JSON.parse(store.get(STORE)) || []; currentId = store.get(CURRENT); } catch (e) { docs = []; }
+  function persist() {
+    if (!store.set(STORE, JSON.stringify(docs)) || !store.set(CURRENT, currentId || ''))
+      toast('Speichern im Browser fehlgeschlagen (Speicher voll?) – bitte als .bpmn herunterladen');
+  }
+  const currentDoc = () => docs.find(d => d.id === currentId);
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  const EMPTY = name => `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_${uid()}" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_${uid()}" name="${esc(name)}" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_1" name="Start" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${'Process_'}">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1"><dc:Bounds x="180" y="160" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="186" y="203" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`;
+  function emptyXml(name) {
+    // keep process id and plane reference in sync
+    const pid = 'Process_' + uid();
+    return EMPTY(name).replace(/Process_[a-z0-9]+/, pid).replace('bpmnElement="Process_"', `bpmnElement="${pid}"`);
+  }
+
+  // empty decision table: one input, one output, one empty rule
+  function emptyDmn(name, decisionId) {
+    const did = decisionId || 'Decision_' + uid();
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" id="Definitions_${uid()}" name="${esc(name)}" namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="${did}" name="${esc(name)}">
+    <decisionTable id="DecisionTable_${uid()}" hitPolicy="UNIQUE">
+      <input id="Input_${uid()}" label="Eingabe">
+        <inputExpression id="InputExpression_${uid()}" typeRef="string"><text>eingabe</text></inputExpression>
+      </input>
+      <output id="Output_${uid()}" label="Ergebnis" name="ergebnis" typeRef="string" />
+      <rule id="Rule_${uid()}">
+        <inputEntry id="UnaryTests_${uid()}"><text></text></inputEntry>
+        <outputEntry id="LiteralExpression_${uid()}"><text></text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_${uid()}">
+      <dmndi:DMNShape id="DMNShape_${uid()}" dmnElementRef="${did}"><dc:Bounds height="80" width="180" x="160" y="100" /></dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>`;
+  }
+  const isDmnXml = xml => /omg\.org\/spec\/DMN\//i.test(String(xml).slice(0, 4000));
+  const docType = d => d.type || (isDmnXml(d.xml) ? 'dmn' : 'bpmn');
+
+  // all decisions in all stored DMN documents (for linking business rule tasks)
+  function allDecisions() {
+    const out = [];
+    docs.filter(d => docType(d) === 'dmn').forEach(d => {
+      try {
+        const x = new DOMParser().parseFromString(d.xml, 'application/xml');
+        [...x.getElementsByTagNameNS('*', 'decision')].forEach(n => out.push({ docId: d.id, docName: d.name, id: n.getAttribute('id'), name: n.getAttribute('name') || n.getAttribute('id') }));
+      } catch (e) {}
+    });
+    return out;
+  }
+  // business rule tasks in stored processes that point to a decision
+  function usagesOf(decisionId) {
+    const out = [];
+    docs.filter(d => docType(d) === 'bpmn').forEach(d => {
+      if (!d.xml.includes(decisionId)) return;
+      try {
+        const x = new DOMParser().parseFromString(d.xml, 'application/xml');
+        [...x.getElementsByTagNameNS('*', 'businessRuleTask')].forEach(t => {
+          if (t.getAttributeNS(CAMUNDA_NS, 'decisionRef') === decisionId) out.push({ docId: d.id, docName: d.name, id: t.getAttribute('id'), name: t.getAttribute('name') || t.getAttribute('id') });
+        });
+      } catch (e) {}
+    });
+    return out;
+  }
+
+  // switch between the BPMN and the DMN editor
+  // (the DMN editors handle their keyboard shortcuts themselves while focused)
+  function setMode(m) {
+    if (m === mode) return;
+    mode = m;
+    $('app').classList.toggle('mode-dmn', m === 'dmn');
+    $('dmnWrap').hidden = m !== 'dmn';
+    $('saveExt').textContent = m === 'dmn' ? '.dmn' : '.bpmn';
+    if (!$('qm').hidden) closeQuickMenu();
+    const kb = modeler.get('keyboard');
+    if (m === 'dmn') { try { kb.unbind(); } catch (e) {} }
+    else { try { kb.bind(document); } catch (e) {} setTimeout(() => canvas.resized(), 0); }
+  }
+
+  // like 'fit-viewport', but keeps the diagram clear of the palette on the left
+  function fit() {
+    const inner = canvas.viewbox().inner;
+    const box = $('canvas'), W = box.clientWidth, H = box.clientHeight;
+    if (!W || !H || !isFinite(inner.width)) return; // not visible (yet)
+    const pal = box.querySelector('.djs-palette');
+    const left = (pal ? pal.offsetLeft + pal.offsetWidth : 0) + 30;
+    const usedW = Math.max(100, W - left - 30);
+    const iw = Math.max(inner.width, 1), ih = Math.max(inner.height, 1);
+    const z = Math.min(1, usedW / iw, (H - 60) / ih);
+    canvas.viewbox({
+      x: inner.x - (left + Math.max(0, usedW - iw * z) / 2) / z,
+      y: inner.y - (H - ih * z) / 2 / z,
+      width: W / z, height: H / z
+    });
+  }
+
+  let loading = false, loadOk = false;
+  let returnTo = null; // { id, el }: process to go back to from a decision table
+  // opts: decision (DMN: open this decision), select (BPMN: select this element), returnTo
+  async function openDoc(id, opts = {}) {
+    const doc = docs.find(d => d.id === id);
+    if (!doc) return;
+    const type = docType(doc);
+    loading = true; loadOk = false;
+    currentId = id; persist();
+    try {
+      if (type === 'dmn') {
+        setMode('dmn');
+        returnTo = opts.returnTo || null;
+        const { warnings } = await dmnModeler.importXML(doc.xml);
+        if (warnings && warnings.length) console.warn('Import-Hinweise', warnings);
+        loadOk = true;
+        await openDmnView(opts.decision);
+      } else {
+        setMode('bpmn');
+        const { warnings } = await modeler.importXML(doc.xml);
+        if (warnings && warnings.length) console.warn('Import-Hinweise', warnings);
+        loadOk = true;
+        fit();
+        const sel = opts.select && registry.get(opts.select);
+        if (sel) { selection.select(sel); try { canvas.scrollToElement(sel, { top: 120, bottom: 120, left: 200, right: 200 }); } catch (e) {} }
+      }
+    } catch (err) {
+      console.error('Import fehlgeschlagen', err);
+      toast('Datei konnte nicht geladen werden: ' + err.message);
+    } finally { loading = false; }
+    $('docName').value = doc.name;
+    renderDocList(); renderProps(); runLint(); updateStats(); setSaveState('Gespeichert');
+  }
+
+  function newDoc(name, xml, type, opts) {
+    type = type || (xml && isDmnXml(xml) ? 'dmn' : 'bpmn');
+    const n = name || (type === 'dmn' ? 'Neue Entscheidung ' : 'Neuer Prozess ') + (docs.length + 1);
+    const doc = { id: uid(), type, name: n, xml: xml || (type === 'dmn' ? emptyDmn(n) : emptyXml(n)), updated: Date.now() };
+    docs.unshift(doc); persist();
+    return openDoc(doc.id, opts);
+  }
+
+  // ---------- DMN views (overview diagram + one tab per decision) ----------
+  const viewKey = v => v ? v.type + ':' + v.element.id : '';
+  async function openDmnView(decisionId) {
+    const views = dmnModeler.getViews();
+    const tables = views.filter(v => v.type !== 'drd');
+    let v = decisionId && tables.find(x => x.element.id === decisionId);
+    if (!v && tables.length === 1) v = tables[0];
+    if (!v) v = views.find(x => x.type === 'drd') || views[0];
+    if (v && viewKey(v) !== viewKey(dmnModeler.getActiveView())) await dmnModeler.open(v);
+    dmnFit();
+  }
+  function dmnFit() {
+    const v = dmnModeler.getActiveView(), viewer = dmnModeler.getActiveViewer();
+    if (v && v.type === 'drd' && viewer) setTimeout(() => { try { viewer.get('canvas').zoom('fit-viewport', 'auto'); } catch (e) {} }, 0);
+  }
+  const ICON_TABLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/></svg>';
+  const ICON_DRD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="5" rx="1"/><rect x="13" y="16" width="8" height="5" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/><path d="M7 8v8M7 12h10v4"/></svg>';
+  function renderDmnTabs() {
+    if (mode !== 'dmn') return;
+    const active = viewKey(dmnModeler.getActiveView());
+    const views = dmnModeler.getViews();
+    const back = returnTo && docs.find(d => d.id === returnTo.id);
+    let html = back ? `<button class="dmn-tab dmn-back" id="dmnBack" title="Zurück zum Prozess">← ${esc(back.name)}</button><div class="sep"></div>` : '';
+    html += views.map((v, i) => {
+      const lbl = v.type === 'drd' ? 'Übersicht (DRD)' : esc(v.element.name || v.element.id);
+      const kind = v.type === 'decisionTable' ? '' : v.type === 'literalExpression' ? ' <span class="k">Ausdruck</span>' : v.type === 'drd' ? '' : ' <span class="k">' + esc(v.type) + '</span>';
+      return `<button class="dmn-tab ${viewKey(v) === active ? 'on' : ''}" data-i="${i}" title="${v.type === 'drd' ? 'Entscheidungsanforderungsdiagramm: alle Entscheidungen und ihre Abhängigkeiten' : 'Entscheidung öffnen'}">${v.type === 'drd' ? ICON_DRD : ICON_TABLE}${lbl}${kind}</button>`;
+    }).join('');
+    $('dmnTabs').innerHTML = html;
+  }
+  $('dmnTabs').addEventListener('click', async e => {
+    if (e.target.closest('#dmnBack')) { const r = returnTo; await saveNow(); return openDoc(r.id, { select: r.el }); }
+    const t = e.target.closest('[data-i]');
+    if (!t) return;
+    const v = dmnModeler.getViews()[+t.dataset.i];
+    if (v) { await dmnModeler.open(v); dmnFit(); }
+  });
+  function onDmnChange() {
+    if (loading) return;
+    setSaveState('Ungespeicherte Änderungen …');
+    clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 600);
+    scheduleLint(); updateStats(); renderDmnTabs();
+    if (!$('props').contains(document.activeElement)) renderProps();
+  }
+  dmnModeler.on('views.changed', () => {
+    const v = dmnModeler.getActiveViewer();
+    if (v && !v.__psHooked) {
+      v.__psHooked = true;
+      try { v.get('eventBus').on('commandStack.changed', onDmnChange); } catch (e) {}
+    }
+    if (mode === 'dmn') { renderDmnTabs(); renderProps(); updateStats(); }
+  });
+
+  function deleteDoc(id) {
+    const doc = docs.find(d => d.id === id);
+    if (!doc || !confirm(`«${doc.name}» wirklich löschen? Dies kann nicht rückgängig gemacht werden.`)) return;
+    docs = docs.filter(d => d.id !== id); persist();
+    if (id === currentId) { docs.length ? openDoc(docs[0].id) : newDoc(); } else renderDocList();
+  }
+
+  function renderDocList() {
+    const fmt = t => new Date(t).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    $('docList').innerHTML = docs.map(d => `
+      <div class="doc-item ${d.id === currentId ? 'active' : ''}" data-id="${d.id}">
+        <span class="tag ${docType(d)}" title="${docType(d) === 'dmn' ? 'Entscheidungstabelle / Geschäftsregeln (DMN)' : 'Prozess (BPMN)'}">${docType(d) === 'dmn' ? 'DMN' : 'BPMN'}</span>
+        <div class="n">${esc(d.name)}<div class="d">${fmt(d.updated)}</div></div>
+        <button class="x" data-del="${d.id}" title="Löschen">✕</button>
+      </div>`).join('');
+  }
+  $('docList').addEventListener('click', e => {
+    const del = e.target.closest('[data-del]');
+    if (del) { e.stopPropagation(); return deleteDoc(del.dataset.del); }
+    const item = e.target.closest('.doc-item');
+    if (item && item.dataset.id !== currentId) { saveNow().then(() => openDoc(item.dataset.id)); }
+  });
+
+  function setSaveState(s) { $('saveState').textContent = s; }
+  let saveTimer = null;
+  async function saveNow() {
+    clearTimeout(saveTimer);
+    const doc = currentDoc();
+    if (!doc || !loadOk || loading) return; // never overwrite a document that failed to load
+    let xml;
+    try { ({ xml } = mode === 'dmn' ? await dmnModeler.saveXML({ format: true }) : await modeler.saveXML({ format: true })); }
+    catch (err) { console.error(err); return setSaveState('Speichern fehlgeschlagen: ' + err.message); }
+    doc.xml = xml; doc.type = mode; doc.updated = Date.now(); persist();
+    setSaveState('Gespeichert ' + new Date().toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }));
+    renderDocList();
+  }
+  eventBus.on('commandStack.changed', () => {
+    if (loading) return;
+    setSaveState('Ungespeicherte Änderungen …');
+    clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 600);
+    scheduleLint(); updateStats();
+  });
+  window.addEventListener('beforeunload', () => { saveNow(); });
+
+  $('docName').addEventListener('change', e => {
+    const doc = currentDoc(); if (!doc) return;
+    doc.name = e.target.value.trim() || doc.name; e.target.value = doc.name;
+    persist(); renderDocList();
+  });
+  $('docName').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+
+  // ---------- Files: open / save / export ----------
+  // content: text, a Blob, or a ready data: URL
+  function download(name, content, mime) {
+    const isUrl = typeof content === 'string' && content.startsWith('data:');
+    const a = document.createElement('a');
+    a.href = isUrl ? content : URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type: mime }));
+    a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    if (!isUrl) setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  const safeName = () => (currentDoc()?.name || 'prozess').replace(/[\\/:*?"<>|]+/g, '_');
+
+  async function importFile(file) {
+    const text = await file.text();
+    if (!/definitions/i.test(text)) return toast('Das scheint keine BPMN- oder DMN-Datei zu sein.');
+    await saveNow();
+    await newDoc(file.name.replace(/\.(bpmn|dmn|xml)$/i, ''), text, isDmnXml(text) ? 'dmn' : 'bpmn');
+    toast('«' + file.name + '» importiert');
+  }
+  $('btnOpen').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ''; };
+  $('btnSave').onclick = async () => {
+    const dmn = mode === 'dmn';
+    const { xml } = await (dmn ? dmnModeler : modeler).saveXML({ format: true });
+    download(safeName() + (dmn ? '.dmn' : '.bpmn'), xml, 'application/xml');
+  };
+  $('btnSvg').onclick = async () => { const { svg } = await modeler.saveSVG(); download(safeName() + '.svg', withCategoryStyle(svg), 'image/svg+xml'); };
+  $('btnPng').onclick = async () => {
+    try {
+      let { svg } = await modeler.saveSVG();
+      svg = withCategoryStyle(svg.slice(svg.indexOf('<svg'))); // drop XML prolog + DOCTYPE, some browsers refuse them in images
+      const doc = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+      const w = parseFloat(doc.getAttribute('width')) || 800, h = parseFloat(doc.getAttribute('height')) || 600;
+      const scale = Math.max(0.5, Math.min(2, 8000 / Math.max(w, h))); // stay within browser canvas limits
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('Bild konnte nicht erzeugt werden'));
+        i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+      download(safeName() + '.png', blob && blob.size ? blob : c.toDataURL('image/png'));
+    } catch (err) {
+      console.error(err);
+      toast('PNG-Export fehlgeschlagen: ' + err.message + ' – SVG-Export versuchen');
+    }
+  };
+
+  // drag & drop
+  const cv = $('canvas');
+  cv.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); $('dropHint').classList.add('show'); } });
+  cv.addEventListener('dragleave', e => { if (!cv.contains(e.relatedTarget)) $('dropHint').classList.remove('show'); });
+  cv.addEventListener('drop', e => { e.preventDefault(); $('dropHint').classList.remove('show'); const f = e.dataTransfer.files[0]; if (f) importFile(f); });
+
+  // ---------- Toolbar ----------
+  $('btnNew').onclick = $('btnNew2').onclick = async () => { await saveNow(); newDoc(); };
+  $('btnNewDmn').onclick = $('btnNewDmn2').onclick = async () => { await saveNow(); newDoc(null, null, 'dmn'); };
+  const activeStack = () => {
+    if (mode !== 'dmn') return commandStack;
+    try { return dmnModeler.getActiveViewer().get('commandStack'); } catch (e) { return null; }
+  };
+  $('btnUndo').onclick = () => { const s = activeStack(); if (s) s.undo(); };
+  $('btnRedo').onclick = () => { const s = activeStack(); if (s) s.redo(); };
+  $('btnFit').onclick = () => mode === 'dmn' ? dmnFit() : fit();
+  $('btnHelp').onclick = () => $('help').classList.add('show');
+  $('help').onclick = e => { if (e.target.id === 'help') $('help').classList.remove('show'); };
+  // ---------- Collapsible sidebars & sections (state remembered) ----------
+  const UI_KEY = 'prozessStudio.ui';
+  let ui = {};
+  try { ui = JSON.parse(store.get(UI_KEY)) || {}; } catch (e) { ui = {}; }
+  ui.sections = ui.sections || {};
+  const saveUi = () => store.set(UI_KEY, JSON.stringify(ui));
+
+  function setPanel(side, open, remember = true) {
+    $('app').classList.toggle('no-' + side, !open);
+    if (remember) { ui[side] = open; saveUi(); }
+    setTimeout(() => canvas.resized(), 0);
+  }
+  function setSection(name, open, remember = true) {
+    const sec = document.querySelector(`.sec[data-sec="${name}"]`);
+    if (!sec) return;
+    sec.classList.toggle('collapsed', !open);
+    if (remember) { ui.sections[name] = open; saveUi(); }
+  }
+  // a manual toggle ends any automatic opening (see "auto-open properties" below)
+  const togglePanel = side => { if (side === 'right') autoOpened = { panel: false, section: false }; setPanel(side, $('app').classList.contains('no-' + side)); };
+  const toggleSection = sec => { if (sec.dataset.sec === 'props') autoOpened.section = false; setSection(sec.dataset.sec, sec.classList.contains('collapsed')); };
+
+  // Properties panel follows the selection: clicking an element opens it
+  // (moving it does not: diagram-js swallows the click after a drag);
+  // with nothing selected (deselect or click on empty canvas) it closes again
+  let autoOpened = { panel: false, section: false }, autoCloseTimer = null;
+  function scheduleAutoClose() {
+    clearTimeout(autoCloseTimer);
+    // short delay: dragging from the palette clears the selection for a moment
+    autoCloseTimer = setTimeout(() => {
+      if (selection.get().length || $('right').contains(document.activeElement)) return;
+      if (autoOpened.section) setSection('props', false, false);
+      setPanel('right', false, false);
+      autoOpened = { panel: false, section: false };
+    }, 400);
+  }
+  // low priority: runs after diagram-js has updated the selection for this click
+  // (clicking an already selected element deselects it)
+  eventBus.on('element.click', 1, e => {
+    if (!e.element) return;
+    if (e.element === canvas.getRootElement() || !selection.isSelected(e.element)) return scheduleAutoClose();
+    clearTimeout(autoCloseTimer);
+    if ($('app').classList.contains('no-right')) { setPanel('right', true, false); autoOpened.panel = true; }
+    if (document.querySelector('.sec[data-sec="props"]').classList.contains('collapsed')) { setSection('props', true, false); autoOpened.section = true; }
+  });
+  eventBus.on('selection.changed', e => {
+    clearTimeout(autoCloseTimer);
+    if (!e.newSelection.length) scheduleAutoClose();
+  });
+
+  document.addEventListener('click', e => {
+    const p = e.target.closest('[data-panel]');
+    if (p) return togglePanel(p.dataset.panel);
+    const head = e.target.closest('.sec-head');
+    if (head && !e.target.closest('button')) toggleSection(head.closest('.sec'));
+  });
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('sec-head')) {
+      e.preventDefault(); toggleSection(e.target.closest('.sec'));
+    }
+  });
+  $('btnLeft').onclick = () => togglePanel('left');
+  $('btnRight').onclick = () => togglePanel('right');
+
+  let autoConnect = store.get('prozessStudio.auto') !== 'off';
+  function syncAutoBtn() { $('btnAuto').classList.toggle('on', autoConnect); }
+  syncAutoBtn();
+  $('btnAuto').onclick = () => {
+    autoConnect = !autoConnect; syncAutoBtn();
+    store.set('prozessStudio.auto', autoConnect ? 'on' : 'off');
+    toast('Auto-Verbinden ' + (autoConnect ? 'an' : 'aus'));
+  };
+
+  // ---------- Category colours (display only, not written into the .bpmn) ----------
+  // [marker class, bpmn type, fill, stroke]; first match wins
+  const CATEGORIES = [
+    ['cat-start', 'bpmn:StartEvent', '#e8f5e9', '#2e7d32'],
+    ['cat-end', 'bpmn:EndEvent', '#ffebee', '#c62828'],
+    ['cat-event', 'bpmn:Event', '#fff8e1', '#b26a00'],
+    ['cat-sub', 'bpmn:SubProcess', '#f3e5f5', '#6a1b9a'],
+    ['cat-sub', 'bpmn:CallActivity', '#f3e5f5', '#6a1b9a'],
+    ['cat-task', 'bpmn:Activity', '#e3f2fd', '#1565c0'],
+    ['cat-gateway', 'bpmn:Gateway', '#fffde7', '#8d6e00'],
+    ['cat-data', 'bpmn:DataObjectReference', '#eceff1', '#455a64'],
+    ['cat-data', 'bpmn:DataStoreReference', '#eceff1', '#455a64']
+  ];
+  const CAT_CLASSES = [...new Set(CATEGORIES.map(c => c[0]))];
+  // same rules are embedded into SVG/PNG exports
+  const CATEGORY_CSS = CATEGORIES.filter((c, i, a) => a.findIndex(x => x[0] === c[0]) === i).map(([cls, , fill, stroke]) => {
+    const shape = cls.includes('event') || cls === 'cat-start' || cls === 'cat-end' ? 'circle' : cls === 'cat-gateway' ? 'polygon' : cls === 'cat-data' ? 'path:first-child' : 'rect:first-child';
+    return `.djs-element.${cls} > .djs-visual > ${shape} { fill: ${fill} !important; stroke: ${stroke} !important; }`;
+  }).join('\n') + '\n.djs-element.cat-event > .djs-visual > circle:not(:first-child), .djs-element.cat-start > .djs-visual > circle:not(:first-child) { fill: none !important; }';
+  document.head.appendChild(Object.assign(document.createElement('style'), { textContent: CATEGORY_CSS }));
+
+  let categoryColors = store.get('prozessStudio.cat') === 'on';
+  function hasOwnColor(el) {
+    try { return !!(el.di && (el.di.get('color:background-color') || el.di.get('bioc:fill'))); } catch (e) { return false; }
+  }
+  function applyCategory(el) {
+    if (!el || el.waypoints || el.labelTarget || !el.businessObject || !registry.get(el.id)) return;
+    CAT_CLASSES.forEach(c => canvas.removeMarker(el, c));
+    if (!categoryColors || hasOwnColor(el)) return;
+    const cat = CATEGORIES.find(c => is(el, c[1]));
+    if (cat) canvas.addMarker(el, cat[0]);
+  }
+  const applyAllCategories = () => registry.getAll().forEach(applyCategory);
+  function syncCatBtn() { $('btnCat').classList.toggle('on', categoryColors); }
+  syncCatBtn();
+  $('btnCat').onclick = () => {
+    categoryColors = !categoryColors; syncCatBtn(); applyAllCategories();
+    store.set('prozessStudio.cat', categoryColors ? 'on' : 'off');
+    toast('Farben nach Kategorie ' + (categoryColors ? 'an' : 'aus'));
+  };
+  eventBus.on('import.done', applyAllCategories);
+  eventBus.on('elements.changed', e => e.elements.forEach(applyCategory));
+  // put the category colours into an exported SVG when they are switched on
+  const withCategoryStyle = svg => categoryColors ? svg.replace(/(<svg[^>]*>)/, `$1<style>${CATEGORY_CSS}</style>`) : svg;
+
+  document.addEventListener('keydown', e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); $('btnSave').click(); }
+    else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); $('btnOpen').click(); }
+    else if (mod && e.key === '0') { e.preventDefault(); $('btnFit').click(); }
+    else if (e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); $('btnNew').click(); }
+    else if (mode === 'dmn' && !mod && !e.altKey && /^[vn]$/i.test(e.key)) { /* BPMN-only shortcuts */ }
+    else if (!mod && !e.altKey && e.key.toLowerCase() === 'v') { e.preventDefault(); connectSelected(); }
+    else if (!mod && !e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); openQuickMenu(); }
+    else if (!mod && e.key === '?') { $('help').classList.add('show'); }
+    else if (e.key === 'Escape') { $('help').classList.remove('show'); }
+  });
+
+  // ---------- Smart connecting ----------
+  function canConnect(source, target) {
+    if (!source || !target || source === target) return false;
+    if (source.outgoing.some(c => c.target === target)) return false;
+    return !!rules.allowed('connection.create', { source, target });
+  }
+
+  // Auto-connect: a shape created from the palette is linked to the element that was selected before
+  // (clicking the palette clears the selection, so remember what was selected just before)
+  let anchor = null, lastSingle = null, clearedAt = 0;
+  eventBus.on('selection.changed', e => {
+    const s = e.newSelection;
+    if (s.length === 1) { lastSingle = s[0].type === 'label' ? s[0].labelTarget : s[0]; clearedAt = 0; }
+    else if (s.length === 0) clearedAt = Date.now();
+    else lastSingle = null;
+  });
+  eventBus.on('create.start', e => {
+    const sel = selection.get();
+    let cand = sel.length === 1 ? sel[0] : (sel.length === 0 && Date.now() - clearedAt < 1000 ? lastSingle : null);
+    if (cand && cand.type === 'label') cand = cand.labelTarget;
+    anchor = (autoConnect && !e.context.source && cand && registry.get(cand.id) && is(cand, 'bpmn:FlowNode') && !is(cand, 'bpmn:EndEvent')) ? cand : null;
+  });
+  eventBus.on('create.end', 1, e => {
+    const src = anchor; anchor = null;
+    const shape = e.context && (e.context.shape || (e.context.elements || []).find(el => is(el, 'bpmn:FlowNode')));
+    if (!src || !shape || !registry.get(src.id) || !is(shape, 'bpmn:FlowNode') || shape.host) return;
+    if (!registry.get(shape.id) || (shape.incoming && shape.incoming.length)) return;
+    if (canConnect(src, shape)) modeling.connect(src, shape);
+  });
+  eventBus.on('create.cleanup', () => { anchor = null; });
+
+  function connectSelected() {
+    const nodes = selection.get().filter(el => is(el, 'bpmn:FlowNode') && !el.waypoints);
+    if (nodes.length < 2) return toast('Mindestens zwei Elemente mit Shift+Klick auswählen');
+    nodes.sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    let made = 0;
+    for (let i = 0; i < nodes.length - 1; i++) {
+      if (canConnect(nodes[i], nodes[i + 1])) { modeling.connect(nodes[i], nodes[i + 1]); made++; }
+    }
+    toast(made ? made + ' Verbindung(en) erstellt' : 'Nichts zu verbinden');
+  }
+  $('btnChain').onclick = connectSelected;
+
+  // ---------- Quick menu (N): every element type, searchable ----------
+  const elementFactory = modeler.get('elementFactory');
+  const autoPlace = modeler.get('autoPlace');
+  const directEditing = modeler.get('directEditing');
+
+  // [label, bpmn type, event definition, icon, search words, options]
+  const QM_GROUPS = [
+    ['Startereignisse', [
+      ['Startereignis', 'StartEvent', null, 'start-event-none', 'start beginn anfang'],
+      ['Nachrichten-Start', 'StartEvent', 'Message', 'start-event-message', 'nachricht message mail eingang'],
+      ['Zeit-Start', 'StartEvent', 'Timer', 'start-event-timer', 'zeit timer datum täglich zyklus uhr'],
+      ['Bedingungs-Start', 'StartEvent', 'Conditional', 'start-event-condition', 'bedingung condition regel'],
+      ['Signal-Start', 'StartEvent', 'Signal', 'start-event-signal', 'signal broadcast']
+    ]],
+    ['Zwischenereignisse', [
+      ['Zwischenereignis (leer)', 'IntermediateThrowEvent', null, 'intermediate-event-none', 'meilenstein status zwischen'],
+      ['Nachricht empfangen', 'IntermediateCatchEvent', 'Message', 'intermediate-event-catch-message', 'nachricht message warten eingang'],
+      ['Nachricht senden', 'IntermediateThrowEvent', 'Message', 'intermediate-event-throw-message', 'nachricht message versenden mail'],
+      ['Zeit-Zwischenereignis (warten)', 'IntermediateCatchEvent', 'Timer', 'intermediate-event-catch-timer', 'zeit timer warten frist dauer uhr'],
+      ['Bedingung (warten)', 'IntermediateCatchEvent', 'Conditional', 'intermediate-event-catch-condition', 'bedingung condition'],
+      ['Signal empfangen', 'IntermediateCatchEvent', 'Signal', 'intermediate-event-catch-signal', 'signal'],
+      ['Signal senden', 'IntermediateThrowEvent', 'Signal', 'intermediate-event-throw-signal', 'signal broadcast'],
+      ['Eskalation auslösen', 'IntermediateThrowEvent', 'Escalation', 'intermediate-event-throw-escalation', 'eskalation escalation'],
+      ['Link empfangen', 'IntermediateCatchEvent', 'Link', 'intermediate-event-catch-link', 'link sprung goto'],
+      ['Link auslösen', 'IntermediateThrowEvent', 'Link', 'intermediate-event-throw-link', 'link sprung goto'],
+      ['Kompensation auslösen', 'IntermediateThrowEvent', 'Compensate', 'intermediate-event-throw-compensation', 'kompensation compensation rückgängig']
+    ]],
+    ['Randereignisse (an ausgewählte Aufgabe)', [
+      ['Zeit-Randereignis', 'BoundaryEvent', 'Timer', 'intermediate-event-catch-timer', 'zeit timer frist abgelaufen rand', { boundary: true }],
+      ['Zeit-Rand (nicht unterbrechend)', 'BoundaryEvent', 'Timer', 'intermediate-event-catch-non-interrupting-timer', 'zeit timer erinnerung rand', { boundary: true, nonInterrupting: true }],
+      ['Nachrichten-Randereignis', 'BoundaryEvent', 'Message', 'intermediate-event-catch-message', 'nachricht message rand', { boundary: true }],
+      ['Nachrichten-Rand (nicht unterbrechend)', 'BoundaryEvent', 'Message', 'intermediate-event-catch-non-interrupting-message', 'nachricht message rand', { boundary: true, nonInterrupting: true }],
+      ['Fehler-Randereignis', 'BoundaryEvent', 'Error', 'intermediate-event-catch-error', 'fehler error ausnahme exception rand', { boundary: true }],
+      ['Eskalations-Randereignis', 'BoundaryEvent', 'Escalation', 'intermediate-event-catch-escalation', 'eskalation rand', { boundary: true }],
+      ['Eskalations-Rand (nicht unterbrechend)', 'BoundaryEvent', 'Escalation', 'intermediate-event-catch-non-interrupting-escalation', 'eskalation rand', { boundary: true, nonInterrupting: true }],
+      ['Signal-Randereignis', 'BoundaryEvent', 'Signal', 'intermediate-event-catch-signal', 'signal rand', { boundary: true }],
+      ['Signal-Rand (nicht unterbrechend)', 'BoundaryEvent', 'Signal', 'intermediate-event-catch-non-interrupting-signal', 'signal rand', { boundary: true, nonInterrupting: true }],
+      ['Bedingungs-Randereignis', 'BoundaryEvent', 'Conditional', 'intermediate-event-catch-condition', 'bedingung rand', { boundary: true }],
+      ['Bedingungs-Rand (nicht unterbrechend)', 'BoundaryEvent', 'Conditional', 'intermediate-event-catch-non-interrupting-condition', 'bedingung rand', { boundary: true, nonInterrupting: true }],
+      ['Kompensations-Randereignis', 'BoundaryEvent', 'Compensate', 'intermediate-event-catch-compensation', 'kompensation rand', { boundary: true }],
+      ['Abbruch-Randereignis (Transaktion)', 'BoundaryEvent', 'Cancel', 'intermediate-event-catch-cancel', 'abbruch cancel transaktion rand', { boundary: true }]
+    ]],
+    ['Endereignisse', [
+      ['Endereignis', 'EndEvent', null, 'end-event-none', 'ende end schluss fertig'],
+      ['Nachrichten-Ende', 'EndEvent', 'Message', 'end-event-message', 'nachricht message ende'],
+      ['Fehler-Ende', 'EndEvent', 'Error', 'end-event-error', 'fehler error ende'],
+      ['Eskalations-Ende', 'EndEvent', 'Escalation', 'end-event-escalation', 'eskalation ende'],
+      ['Signal-Ende', 'EndEvent', 'Signal', 'end-event-signal', 'signal ende'],
+      ['Kompensations-Ende', 'EndEvent', 'Compensate', 'end-event-compensation', 'kompensation ende'],
+      ['Abbruch-Ende (Transaktion)', 'EndEvent', 'Cancel', 'end-event-cancel', 'abbruch cancel ende'],
+      ['Terminierungs-Ende', 'EndEvent', 'Terminate', 'end-event-terminate', 'terminieren terminate alles beenden stop']
+    ]],
+    ['Aufgaben', [
+      ['Aufgabe', 'Task', null, 'task', 'aufgabe task tätigkeit aktivität'],
+      ['Benutzeraufgabe', 'UserTask', null, 'user-task', 'benutzer user mensch person formular'],
+      ['Serviceaufgabe', 'ServiceTask', null, 'service-task', 'service system automatisch api'],
+      ['Sendeaufgabe', 'SendTask', null, 'send-task', 'senden send nachricht'],
+      ['Empfangsaufgabe', 'ReceiveTask', null, 'receive-task', 'empfangen receive nachricht warten'],
+      ['Manuelle Aufgabe', 'ManualTask', null, 'manual-task', 'manuell manual hand'],
+      ['Geschäftsregelaufgabe', 'BusinessRuleTask', null, 'business-rule-task', 'geschäftsregel business rule entscheidung dmn tabelle'],
+      ['Skriptaufgabe', 'ScriptTask', null, 'script-task', 'skript script code'],
+      ['Aufrufaktivität', 'CallActivity', null, 'call-activity', 'aufruf call wiederverwendbar unterprozess']
+    ]],
+    ['Teilprozesse', [
+      ['Teilprozess (zugeklappt)', 'SubProcess', null, 'subprocess-collapsed', 'teilprozess subprocess unterprozess', { expanded: false }],
+      ['Teilprozess (aufgeklappt)', 'SubProcess', null, 'subprocess-expanded', 'teilprozess subprocess unterprozess', { expanded: true }],
+      ['Ereignis-Teilprozess', 'SubProcess', null, 'event-subprocess-expanded', 'ereignis event teilprozess subprocess', { expanded: true, eventSub: true }],
+      ['Transaktion', 'Transaction', null, 'transaction', 'transaktion transaction', { expanded: true }]
+    ]],
+    ['Gateways', [
+      ['Exklusives Gateway (XOR)', 'ExclusiveGateway', null, 'gateway-xor', 'xor exklusiv entscheidung oder verzweigung'],
+      ['Paralleles Gateway (AND)', 'ParallelGateway', null, 'gateway-parallel', 'and parallel gleichzeitig und'],
+      ['Inklusives Gateway (OR)', 'InclusiveGateway', null, 'gateway-or', 'or inklusiv oder'],
+      ['Ereignisbasiertes Gateway', 'EventBasedGateway', null, 'gateway-eventbased', 'ereignis event basiert warten'],
+      ['Komplexes Gateway', 'ComplexGateway', null, 'gateway-complex', 'komplex complex']
+    ]],
+    ['Daten, Pools & Sonstiges', [
+      ['Datenobjekt', 'DataObjectReference', null, 'data-object', 'daten data dokument objekt'],
+      ['Datenspeicher', 'DataStoreReference', null, 'data-store', 'daten datenbank speicher store'],
+      ['Anmerkung', 'TextAnnotation', null, 'text-annotation', 'anmerkung kommentar notiz text annotation'],
+      ['Pool / Teilnehmer', 'Participant', null, 'participant', 'pool teilnehmer participant organisation'],
+      ['Gruppe', 'Group', null, 'group', 'gruppe group rahmen']
+    ]]
+  ];
+  const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const GROUP_WORDS = ['start', 'zwischen', 'rand boundary', 'ende end', 'aufgabe task', 'teilprozess', 'gateway', ''];
+  const QM = QM_GROUPS.map(([group, list], gi) => [group, list.map(([label, type, ed, icon, words, o]) => ({
+    label, type: 'bpmn:' + type, ed: ed && 'bpmn:' + ed + 'EventDefinition', icon, o: o || {},
+    name: norm(label), hay: norm([label, GROUP_WORDS[gi], words, type, ed || ''].join(' '))
+  }))]);
+
+  let qmSource = null, qmPoint = null, qmVisible = [], qmActive = 0, lastPointer = null;
+  $('canvas').addEventListener('mousemove', e => {
+    lastPointer = e.target.closest('.djs-palette, #qm, .djs-context-pad, .djs-popup') ? null : { x: e.clientX, y: e.clientY };
+  });
+  $('canvas').addEventListener('mouseleave', () => { lastPointer = null; });
+
+  // diagram coordinates where a freely placed element should go
+  function dropPoint() {
+    const vb = canvas.viewbox(), rect = $('canvas').getBoundingClientRect();
+    if (lastPointer) return { x: Math.round(vb.x + (lastPointer.x - rect.left) / vb.scale), y: Math.round(vb.y + (lastPointer.y - rect.top) / vb.scale) };
+    const pal = $('canvas').querySelector('.djs-palette');
+    const left = pal ? pal.offsetLeft + pal.offsetWidth : 0;
+    return { x: Math.round(vb.x + (left + (rect.width - left) / 2) / vb.scale), y: Math.round(vb.y + rect.height / 2 / vb.scale) };
+  }
+
+  const qmBoundaryOk = () => qmSource && is(qmSource, 'bpmn:Activity');
+  function openQuickMenu() {
+    const sel = selection.get();
+    let src = sel.length === 1 ? sel[0] : (sel.length === 0 && Date.now() - clearedAt < 1000 ? lastSingle : null);
+    if (src && src.type === 'label') src = src.labelTarget;
+    qmSource = src && registry.get(src.id) && !src.waypoints && src !== canvas.getRootElement() ? src : null;
+    qmPoint = dropPoint();
+    const name = qmSource && (qmSource.businessObject.name || TYPE_DE[typeName(qmSource)] || typeName(qmSource));
+    $('qmHint').innerHTML = !qmSource
+      ? 'Wird ' + (lastPointer ? 'an der Mausposition' : 'in der Mitte') + ' eingefügt. Tipp: vorher ein Element auswählen, dann wird angehängt und verbunden.'
+      : is(qmSource, 'bpmn:FlowNode') && !is(qmSource, 'bpmn:EndEvent')
+        ? `Wird an <b>${esc(name)}</b> angehängt und verbunden` + (qmBoundaryOk() ? ' · Randereignisse werden daran geheftet' : '')
+        : `Ausgewählt: <b>${esc(name)}</b>`;
+    $('qm').hidden = false;
+    $('qmInput').value = '';
+    renderQm();
+    $('qmInput').focus();
+  }
+  function closeQuickMenu() { $('qm').hidden = true; $('qmInput').blur(); }
+
+  function renderQm() {
+    const terms = norm($('qmInput').value.trim()).split(/\s+/).filter(Boolean);
+    qmVisible = [];
+    let html = '';
+    QM.forEach(([group, items]) => {
+      const hits = items.filter(it => terms.every(t => it.hay.includes(t)));
+      if (!hits.length) return;
+      html += `<div class="qm-group">${esc(group)}</div>`;
+      hits.forEach(it => {
+        const i = qmVisible.push(it) - 1;
+        const off = it.o.boundary && !qmBoundaryOk();
+        html += `<div class="qm-item${off ? ' off' : ''}" data-i="${i}"${off ? ' title="Zuerst die Aufgabe auswählen, an die das Ereignis geheftet wird"' : ''}>
+          <span class="ic bpmn-icon-${it.icon}"></span><span class="lbl">${esc(it.label)}</span></div>`;
+      });
+    });
+    $('qmList').innerHTML = html || '<div class="qm-empty">Nichts gefunden</div>';
+    // preselect the best hit: name starts with the search > name contains it > keyword match
+    const score = it => (it.o.boundary && !qmBoundaryOk() ? 10 : 0)
+      + (!terms.length ? 0 : it.name.startsWith(terms[0]) ? 0 : terms.every(t => it.name.includes(t)) ? 1 : 2);
+    let best = 0;
+    qmVisible.forEach((it, i) => { if (score(it) < score(qmVisible[best])) best = i; });
+    setQmActive(best);
+  }
+  function setQmActive(i) {
+    if (!qmVisible.length) return;
+    qmActive = (i + qmVisible.length) % qmVisible.length;
+    $('qmList').querySelectorAll('.qm-item').forEach(n => n.classList.toggle('active', +n.dataset.i === qmActive));
+    const act = $('qmList').querySelector('.qm-item.active');
+    if (act) act.scrollIntoView({ block: 'nearest' });
+  }
+
+  $('qmInput').addEventListener('input', renderQm);
+  $('qmInput').addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setQmActive(qmActive + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setQmActive(qmActive - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (qmVisible[qmActive]) insertItem(qmVisible[qmActive]); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeQuickMenu(); }
+  });
+  $('qmList').addEventListener('mousemove', e => {
+    const n = e.target.closest('.qm-item');
+    if (n && +n.dataset.i !== qmActive) setQmActive(+n.dataset.i);
+  });
+  $('qmList').addEventListener('click', e => {
+    const n = e.target.closest('.qm-item');
+    if (n) insertItem(qmVisible[+n.dataset.i]);
+  });
+  document.addEventListener('mousedown', e => {
+    if (!$('qm').hidden && !e.target.closest('#qm, [data-action="quick-menu"]')) closeQuickMenu();
+  }, true);
+
+  function insertItem(it) {
+    const src = qmSource && registry.get(qmSource.id) ? qmSource : null;
+    if (it.o.boundary && !qmBoundaryOk()) return toast('Zuerst die Aufgabe auswählen, an die das Randereignis geheftet werden soll');
+    closeQuickMenu();
+    const shape = it.type === 'bpmn:Participant'
+      ? elementFactory.createParticipantShape()
+      : elementFactory.createShape({ type: it.type, eventDefinitionType: it.ed || undefined, isExpanded: it.o.expanded });
+    if (it.o.nonInterrupting) shape.businessObject.cancelActivity = false;
+    if (it.o.eventSub) shape.businessObject.triggeredByEvent = true;
+
+    let created = null;
+    try {
+      if (it.o.boundary) {
+        const f = [0.5, 0.25, 0.75, 0.12, 0.88][(src.attachers || []).length % 5];
+        const pos = { x: Math.round(src.x + src.width * f), y: src.y + src.height };
+        if (!rules.allowed('shape.attach', { shape, target: src, position: pos })) return toast('Dieses Randereignis ist an diesem Element nicht erlaubt');
+        created = modeling.createShape(shape, pos, src, { attach: true });
+      } else if (src && is(src, 'bpmn:FlowNode') && !is(src, 'bpmn:EndEvent')
+          && !['bpmn:StartEvent', 'bpmn:Participant', 'bpmn:Group'].includes(it.type)) {
+        created = autoPlace.append(src, shape); // also creates the matching connection
+      } else {
+        created = placeFree(shape);
+      }
+    } catch (err) {
+      console.error(err);
+      return toast('Konnte nicht eingefügt werden: ' + err.message);
+    }
+    if (!created) return;
+    selection.select(created);
+    if (!directEditing.isActive() && !is(created, 'bpmn:Group')) { try { directEditing.activate(created); } catch (e) {} }
+  }
+
+  function placeFree(shape) {
+    const root = canvas.getRootElement();
+    let pos = { x: qmPoint.x, y: qmPoint.y };
+    const pools = registry.filter(e => is(e, 'bpmn:Participant') && !e.labelTarget);
+    if (is(shape, 'bpmn:Participant') && pools.length) {
+      // new pool goes below the existing ones
+      pos = { x: Math.min(...pools.map(p => p.x)) + shape.width / 2, y: Math.max(...pools.map(p => p.y + p.height)) + 30 + shape.height / 2 };
+      return modeling.createShape(shape, pos, root);
+    }
+    // don't drop exactly onto another element
+    const blocks = registry.filter(e => !e.waypoints && !e.labelTarget && e !== root && !is(e, 'bpmn:Participant') && !is(e, 'bpmn:Lane') && !(is(e, 'bpmn:SubProcess') && !e.collapsed));
+    const hit = p => blocks.some(e => p.x > e.x - 30 && p.x < e.x + e.width + 30 && p.y > e.y - 30 && p.y < e.y + e.height + 30);
+    for (let i = 0; i < 12 && hit(pos); i++) pos.y += 70;
+
+    const inside = (e, p) => p.x >= e.x && p.x <= e.x + e.width && p.y >= e.y && p.y <= e.y + e.height;
+    const containers = registry
+      .filter(e => !e.labelTarget && (is(e, 'bpmn:Participant') || is(e, 'bpmn:Lane') || (is(e, 'bpmn:SubProcess') && !e.collapsed)) && inside(e, pos))
+      .sort((a, b) => a.width * a.height - b.width * b.height);
+    for (const target of [...containers, root]) {
+      if (rules.allowed('shape.create', { shape, target, position: pos })) return modeling.createShape(shape, pos, target);
+    }
+    // outside of every pool: put it into the first pool instead
+    for (const p of pools) {
+      const q = { x: Math.min(Math.max(pos.x, p.x + 80), p.x + p.width - 60), y: Math.min(Math.max(pos.y, p.y + 40), p.y + p.height - 40) };
+      if (rules.allowed('shape.create', { shape, target: p, position: q })) return modeling.createShape(shape, q, p);
+    }
+    toast('Hier kann das Element nicht eingefügt werden');
+    return null;
+  }
+
+  // ---------- Properties panel ----------
+  const TYPE_DE = {
+    StartEvent: 'Startereignis', EndEvent: 'Endereignis', IntermediateThrowEvent: 'Zwischenereignis (auslösend)',
+    IntermediateCatchEvent: 'Zwischenereignis (eintretend)', BoundaryEvent: 'Randereignis', Task: 'Aufgabe',
+    UserTask: 'Benutzeraufgabe', ServiceTask: 'Serviceaufgabe', SendTask: 'Sendeaufgabe', ReceiveTask: 'Empfangsaufgabe',
+    ManualTask: 'Manuelle Aufgabe', BusinessRuleTask: 'Geschäftsregelaufgabe', ScriptTask: 'Skriptaufgabe',
+    CallActivity: 'Aufrufaktivität', SubProcess: 'Teilprozess', Transaction: 'Transaktion', AdHocSubProcess: 'Ad-hoc-Teilprozess',
+    ExclusiveGateway: 'Exklusives Gateway (XOR)', ParallelGateway: 'Paralleles Gateway (AND)', InclusiveGateway: 'Inklusives Gateway (OR)',
+    ComplexGateway: 'Komplexes Gateway', EventBasedGateway: 'Ereignisbasiertes Gateway', SequenceFlow: 'Sequenzfluss',
+    MessageFlow: 'Nachrichtenfluss', Association: 'Assoziation', DataInputAssociation: 'Datenassoziation', DataOutputAssociation: 'Datenassoziation',
+    Participant: 'Pool', Lane: 'Lane', DataObjectReference: 'Datenobjekt', DataStoreReference: 'Datenspeicher',
+    TextAnnotation: 'Anmerkung', Group: 'Gruppe', Process: 'Prozess', Collaboration: 'Kollaboration'
+  };
+  const EVDEF_DE = {
+    MessageEventDefinition: 'Nachricht', TimerEventDefinition: 'Zeit', ConditionalEventDefinition: 'Bedingung',
+    SignalEventDefinition: 'Signal', ErrorEventDefinition: 'Fehler', EscalationEventDefinition: 'Eskalation',
+    CompensateEventDefinition: 'Kompensation', CancelEventDefinition: 'Abbruch', LinkEventDefinition: 'Link', TerminateEventDefinition: 'Terminierung'
+  };
+  const COLORS = [
+    [null, null], ['#fff3e0', '#e65100'], ['#e3f2fd', '#0d47a1'], ['#e8f5e9', '#1b5e20'],
+    ['#fce4ec', '#880e4f'], ['#f3e5f5', '#4a148c'], ['#fffde7', '#827717'], ['#eceff1', '#37474f']
+  ];
+
+  let current = null;
+  function selected() {
+    const sel = selection.get();
+    if (sel.length !== 1) return sel.length > 1 ? sel : null;
+    const el = sel[0];
+    return el.type === 'label' ? el.labelTarget : el;
+  }
+
+  // ---------- Business rules: properties ----------
+  const HIT_POLICIES = [
+    ['UNIQUE', 'U', 'Unique', 'Höchstens eine Regel darf zutreffen (Regeln überschneiden sich nicht).'],
+    ['FIRST', 'F', 'First', 'Die erste zutreffende Regel von oben gilt.'],
+    ['PRIORITY', 'P', 'Priority', 'Mehrere dürfen zutreffen; es gilt das Ergebnis mit höchster Priorität (Reihenfolge der erlaubten Ausgabewerte).'],
+    ['ANY', 'A', 'Any', 'Mehrere dürfen zutreffen, müssen aber dasselbe Ergebnis liefern.'],
+    ['COLLECT', 'C', 'Collect', 'Alle Treffer werden gesammelt (optional C+ Summe, C< Min, C> Max, C# Anzahl).'],
+    ['RULE ORDER', 'R', 'Rule order', 'Alle Treffer als Liste in Regelreihenfolge.'],
+    ['OUTPUT ORDER', 'O', 'Output order', 'Alle Treffer als Liste, nach Priorität sortiert.']
+  ];
+  const decisionRef = bo => (bo.$attrs && bo.$attrs['camunda:decisionRef']) || '';
+
+  function renderDmnProps() {
+    const box = $('props');
+    const view = dmnModeler.getActiveView();
+    const defs = dmnModeler.getDefinitions();
+    if (!view || !defs) { box.innerHTML = '<p class="empty">Keine Entscheidung geladen.</p>'; return; }
+    const decisions = (defs.drgElement || []).filter(e => e.$type === 'dmn:Decision');
+    let html = '';
+    if (view.type === 'drd') {
+      html += `<div class="field"><span class="type-pill">Entscheidungsübersicht (DRD)</span></div>
+        <div class="field tips"><p>Links aus der Palette <b>Entscheidungen</b>, <b>Eingabedaten</b> und <b>Wissensquellen</b> einfügen und verbinden. Das Tabellen-Symbol oben links an einer Entscheidung öffnet ihre Tabelle.</p></div>`;
+      html += `<div class="field"><label>Entscheidungen</label>${decisions.length ? '<ul class="link-list">' + decisions.map(d => `<li data-dec="${esc(d.id)}">${ICON_TABLE.replace('<svg', '<svg width="13" height="13" style="vertical-align:-2px;margin-right:5px"')}${esc(d.name || d.id)}</li>`).join('') + '</ul>' : '<p class="empty">Noch keine.</p>'}</div>`;
+    } else {
+      const d = view.element, logic = d.decisionLogic;
+      html += `<div class="field"><span class="type-pill">${view.type === 'decisionTable' ? 'Entscheidungstabelle' : 'Entscheidung'}</span></div>`;
+      html += `<div class="field"><label>Name</label><input type="text" id="pDecName" value="${esc(d.name)}"></div>`;
+      html += `<div class="field"><label>ID (für die Verknüpfung im Prozess)</label><input type="text" id="pDecId" value="${esc(d.id)}" spellcheck="false" readonly title="Die ID wird von Geschäftsregelaufgaben referenziert"></div>`;
+      if (logic && logic.$type === 'dmn:DecisionTable') {
+        const hp = logic.hitPolicy || 'UNIQUE';
+        html += `<div class="field"><label>Hit Policy – was gilt, wenn mehrere Regeln zutreffen? <span class="hint">(ändern: links oben in der Tabelle)</span></label>
+          <table class="hp-table">${HIT_POLICIES.map(([k, c, n, txt]) => `<tr class="${k === hp ? 'on' : ''}"><td>${c}</td><td><b>${n}</b>: ${txt}</td></tr>`).join('')}</table></div>`;
+        html += `<div class="field tips"><p><b>Wenn</b>-Spalten = Bedingungen, <b>Dann</b>-Spalten = Ergebnis. Eine Zeile = eine Regel.</p>
+          <p>Zellen: <code>"Gold"</code> (Text in Anführungszeichen), <code>&gt;= 1000</code>, <code>[100..500]</code>, <code>"A","B"</code> (eines davon), <code>-</code> = egal.</p>
+          <p>Spaltenkopf anklicken = Bezeichnung, Variable und Typ bearbeiten. Rechtsklick = Zeilen/Spalten einfügen oder löschen.</p></div>`;
+      }
+      const uses = usagesOf(d.id);
+      html += `<div class="field"><label>Verwendet in</label>${uses.length
+        ? '<ul class="link-list">' + uses.map((u, i) => `<li data-use="${i}">${esc(u.name)}<div class="d">${esc(u.docName)}</div></li>`).join('') + '</ul>'
+        : '<p class="empty" style="font-size:12px">Noch von keiner Geschäftsregelaufgabe verwendet. Im Prozess eine Geschäftsregelaufgabe wählen und rechts diese Entscheidung zuordnen.</p>'}</div>`;
+      box.innerHTML = html;
+      const nameIn = $('pDecName');
+      nameIn.addEventListener('change', () => {
+        const viewer = dmnModeler.getActiveViewer();
+        try { viewer.get('modeling').editDecisionTableName ? viewer.get('modeling').editDecisionTableName(nameIn.value) : viewer.get('modeling').updateProperties(d, { name: nameIn.value }); }
+        catch (e) { d.name = nameIn.value; onDmnChange(); }
+      });
+      nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') nameIn.blur(); });
+      box.querySelectorAll('[data-use]').forEach(n => n.onclick = async () => {
+        const u = uses[+n.dataset.use]; await saveNow(); openDoc(u.docId, { select: u.id });
+      });
+      return;
+    }
+    box.innerHTML = html;
+    box.querySelectorAll('[data-dec]').forEach(n => n.onclick = () => openDmnView(n.dataset.dec));
+  }
+
+  // link a business rule task to a decision (stored Camunda-compatible as camunda:decisionRef)
+  function linkDecision(el, id) {
+    if (id) { const defs = modeler.getDefinitions(); defs.$attrs['xmlns:camunda'] = CAMUNDA_NS; }
+    modeling.updateProperties(el, { 'camunda:decisionRef': id || undefined });
+  }
+  async function openDecision(dec, el) {
+    await saveNow();
+    openDoc(dec.docId, { decision: dec.id, returnTo: { id: currentId, el: el && el.id } });
+  }
+  async function createDecisionFor(el) {
+    const name = el.businessObject.name || 'Entscheidung';
+    const did = 'Decision_' + uid();
+    linkDecision(el, did);
+    await saveNow();
+    const ret = { id: currentId, el: el.id };
+    await newDoc(name, emptyDmn(name, did), 'dmn', { decision: did, returnTo: ret });
+    toast('Entscheidungstabelle angelegt und mit der Aufgabe verknüpft');
+  }
+  function businessRuleField(bo) {
+    const ref = decisionRef(bo);
+    const all = allDecisions();
+    const byDoc = new Map();
+    all.forEach(d => { if (!byDoc.has(d.docId)) byDoc.set(d.docId, []); byDoc.get(d.docId).push(d); });
+    let opts = '<option value="">– keine verknüpft –</option>';
+    byDoc.forEach(list => {
+      opts += `<optgroup label="${esc(list[0].docName)}">` + list.map(d => `<option value="${esc(d.id)}" ${d.id === ref ? 'selected' : ''}>${esc(d.name)}</option>`).join('') + '</optgroup>';
+    });
+    const found = all.find(d => d.id === ref);
+    if (ref && !found) opts += `<option value="${esc(ref)}" selected>⚠ ${esc(ref)} (nicht gefunden)</option>`;
+    return `<div class="field"><label>Geschäftsregel (DMN-Entscheidung)</label><select id="pDecision">${opts}</select>
+      <div class="btn-row">${found ? '<button class="small-btn" id="pDecOpen">Tabelle öffnen →</button>' : ''}<button class="small-btn" id="pDecNew">+ Neue Entscheidungstabelle</button></div>
+      <div class="hint">Die Regeln dieser Aufgabe werden in einer Entscheidungstabelle modelliert.</div></div>`;
+  }
+
+  function renderProps() {
+    if (mode === 'dmn') return renderDmnProps();
+    const sel = selected();
+    const box = $('props');
+    if (Array.isArray(sel)) {
+      current = null;
+      box.innerHTML = `<p class="empty">${sel.length} Elemente ausgewählt.</p>
+        <button class="small-btn" id="pChain">Der Reihe nach verbinden (V)</button>
+        <div class="field" style="margin-top:12px"><label>Farbe</label><div class="swatches">${swatches()}</div></div>`;
+      $('pChain').onclick = connectSelected; bindSwatches(sel); return;
+    }
+    const el = sel || canvas.getRootElement();
+    const bo = el && el.businessObject;
+    if (!bo) { current = null; box.innerHTML = '<p class="empty">Nichts ausgewählt.</p>'; return; }
+    current = el;
+    const t = typeName(el);
+    const isRoot = el === canvas.getRootElement();
+    const evDef = bo.eventDefinitions && bo.eventDefinitions[0] ? EVDEF_DE[bo.eventDefinitions[0].$type.replace('bpmn:', '')] : null;
+    const doc = (bo.documentation && bo.documentation[0] && bo.documentation[0].text) || '';
+    const nameable = !is(el, 'bpmn:TextAnnotation') && !is(el, 'bpmn:Group');
+    let html = `<div class="field"><span class="type-pill">${esc(TYPE_DE[t] || t)}${evDef ? ' · ' + evDef : ''}</span>
+        ${bo.cancelActivity === false ? '<div class="hint">nicht unterbrechend</div>' : ''}</div>`;
+    if (is(el, 'bpmn:TextAnnotation')) {
+      html += `<div class="field"><label>Text</label><textarea id="pText">${esc(bo.text)}</textarea></div>`;
+    } else if (is(el, 'bpmn:Group')) {
+      html += `<div class="field"><label>Name</label><input type="text" id="pName" value="${esc(bo.categoryValueRef && bo.categoryValueRef.value)}"></div>`;
+    } else if (nameable) {
+      html += `<div class="field"><label>Name</label><input type="text" id="pName" value="${esc(bo.name)}" placeholder="${isRoot ? 'Prozessname' : 'z. B. Antrag prüfen'}"></div>`;
+    }
+    html += `<div class="field"><label>ID</label><input type="text" id="pId" value="${esc(bo.id)}" spellcheck="false"></div>`;
+
+    if (is(el, 'bpmn:SequenceFlow')) {
+      const src = el.source;
+      const canDefault = is(src, 'bpmn:ExclusiveGateway') || is(src, 'bpmn:InclusiveGateway') || is(src, 'bpmn:ComplexGateway') || is(src, 'bpmn:Activity');
+      const isDefault = canDefault && src.businessObject.default === bo;
+      const cond = bo.conditionExpression ? bo.conditionExpression.body || '' : '';
+      if (canDefault) html += `<div class="field"><label class="check"><input type="checkbox" id="pDefault" ${isDefault ? 'checked' : ''}> Standardfluss (sonst-Zweig)</label></div>`;
+      if (!isDefault && !is(src, 'bpmn:ParallelGateway') && !is(src, 'bpmn:EventBasedGateway') && !is(src, 'bpmn:Event'))
+        html += `<div class="field"><label>Bedingung</label><input type="text" id="pCond" value="${esc(cond)}" placeholder="z. B. \${betrag > 1000}"><div class="hint">Optional. Ausdruck für ausführbare Modelle.</div></div>`;
+    }
+    if (is(el, 'bpmn:Event') && bo.eventDefinitions && bo.eventDefinitions[0] && bo.eventDefinitions[0].$type === 'bpmn:TimerEventDefinition') {
+      const td = bo.eventDefinitions[0];
+      const kind = td.timeDate ? 'timeDate' : td.timeCycle ? 'timeCycle' : 'timeDuration';
+      const val = (td[kind] && td[kind].body) || '';
+      html += `<div class="field"><label>Zeitangabe</label>
+        <select id="pTimerKind"><option value="timeDuration" ${kind === 'timeDuration' ? 'selected' : ''}>Dauer (z. B. P3D)</option>
+        <option value="timeDate" ${kind === 'timeDate' ? 'selected' : ''}>Datum (z. B. 2026-12-31T09:00)</option>
+        <option value="timeCycle" ${kind === 'timeCycle' ? 'selected' : ''}>Zyklus (z. B. R/P1W)</option></select>
+        <input type="text" id="pTimer" value="${esc(val)}" style="margin-top:6px" placeholder="ISO 8601"></div>`;
+    }
+    if (is(el, 'bpmn:BusinessRuleTask')) html += businessRuleField(bo);
+    if (is(el, 'bpmn:Activity') && !isRoot) {
+      const lc = bo.loopCharacteristics;
+      const loop = !lc ? 'none' : lc.$type === 'bpmn:StandardLoopCharacteristics' ? 'loop' : lc.isSequential ? 'seq' : 'par';
+      html += `<div class="field"><label>Wiederholung</label><select id="pLoop">
+        <option value="none" ${loop === 'none' ? 'selected' : ''}>Keine</option>
+        <option value="loop" ${loop === 'loop' ? 'selected' : ''}>Schleife</option>
+        <option value="par" ${loop === 'par' ? 'selected' : ''}>Mehrfachinstanz parallel</option>
+        <option value="seq" ${loop === 'seq' ? 'selected' : ''}>Mehrfachinstanz sequenziell</option></select></div>`;
+    }
+    if (!isRoot) html += `<div class="field"><label>Beschreibung / Dokumentation</label><textarea id="pDoc" placeholder="Was passiert hier? Wer ist zuständig?">${esc(doc)}</textarea></div>`;
+    if (!isRoot && !el.waypoints) html += `<div class="field"><label>Farbe</label><div class="swatches">${swatches()}</div></div>`;
+    if (!isRoot && !el.waypoints && is(el, 'bpmn:FlowNode'))
+      html += `<div class="hint">Typ ändern: Element wählen und <kbd>R</kbd> drücken oder das Schraubenschlüssel-Symbol nutzen.</div>`;
+    if (isRoot) html += `<p class="empty">Nichts ausgewählt. Element anklicken, um es zu bearbeiten.</p>`;
+    box.innerHTML = html;
+    bindProps(el);
+  }
+
+  function swatches() {
+    return COLORS.map((c, i) => `<span class="sw" data-c="${i}" title="${i ? 'Farbe' : 'Standard'}" style="background:${c[0] || '#fff'};${c[1] ? 'border-color:' + c[1] : ''}">${i ? '' : ''}</span>`).join('');
+  }
+  function bindSwatches(els) {
+    $('props').querySelectorAll('.sw').forEach(sw => sw.onclick = () => {
+      const [fill, stroke] = COLORS[+sw.dataset.c];
+      modeling.setColor(els, fill ? { fill, stroke } : null);
+    });
+  }
+
+  function bindProps(el) {
+    const bo = el.businessObject;
+    const on = (id, fn) => { const n = $(id); if (n) n.addEventListener('change', () => fn(n)); };
+    on('pName', n => {
+      if (el === canvas.getRootElement()) modeling.updateProperties(el, { name: n.value });
+      else modeling.updateLabel(el, n.value);
+    });
+    on('pText', n => modeling.updateLabel(el, n.value));
+    on('pId', n => {
+      const v = n.value.trim();
+      if (v === bo.id) return;
+      if (!/^[A-Za-z_][\w.-]*$/.test(v)) { toast('Ungültige ID: muss mit Buchstabe/_ beginnen, keine Leerzeichen'); n.value = bo.id; return; }
+      if (bo.$model.ids.assigned(v)) { toast('Diese ID ist bereits vergeben'); n.value = bo.id; return; }
+      modeling.updateProperties(el, { id: v });
+    });
+    on('pDoc', n => {
+      const text = n.value.trim();
+      modeling.updateProperties(el, { documentation: text ? [bpmnFactory.create('bpmn:Documentation', { text })] : [] });
+    });
+    on('pDefault', n => modeling.updateProperties(el.source, { default: n.checked ? bo : undefined }));
+    on('pCond', n => {
+      const body = n.value.trim();
+      modeling.updateProperties(el, { conditionExpression: body ? bpmnFactory.create('bpmn:FormalExpression', { body }) : undefined });
+    });
+    const setTimer = () => {
+      const kind = $('pTimerKind').value, body = $('pTimer').value.trim();
+      const def = bo.eventDefinitions[0];
+      const props = { timeDate: undefined, timeCycle: undefined, timeDuration: undefined };
+      if (body) props[kind] = bpmnFactory.create('bpmn:FormalExpression', { body });
+      modeling.updateModdleProperties(el, def, props);
+    };
+    on('pTimerKind', setTimer); on('pTimer', setTimer);
+    on('pLoop', n => {
+      let lc;
+      if (n.value === 'loop') lc = bpmnFactory.create('bpmn:StandardLoopCharacteristics');
+      else if (n.value === 'par' || n.value === 'seq') lc = bpmnFactory.create('bpmn:MultiInstanceLoopCharacteristics', { isSequential: n.value === 'seq' });
+      modeling.updateProperties(el, { loopCharacteristics: lc });
+    });
+    on('pDecision', n => linkDecision(el, n.value));
+    if ($('pDecOpen')) $('pDecOpen').onclick = () => { const d = allDecisions().find(x => x.id === decisionRef(bo)); if (d) openDecision(d, el); };
+    if ($('pDecNew')) $('pDecNew').onclick = () => createDecisionFor(el);
+    bindSwatches([el]);
+    $('props').querySelectorAll('input[type=text]').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') i.blur(); }));
+  }
+
+  eventBus.on('selection.changed', renderProps);
+  eventBus.on('elements.changed', e => {
+    const panelFocused = $('props').contains(document.activeElement);
+    if (!panelFocused && current && e.elements.some(x => x === current || x === current.source)) renderProps();
+  });
+  eventBus.on('import.done', () => { current = null; });
+
+  // ---------- Model check (lint) ----------
+  let lintTimer = null, lintOverlayIds = [];
+  function scheduleLint() { clearTimeout(lintTimer); lintTimer = setTimeout(runLint, 400); }
+
+  function lint() {
+    const issues = [];
+    const add = (el, level, msg) => issues.push({ el, level, msg });
+    const all = registry.filter(el => el.type !== 'label' && el !== canvas.getRootElement());
+    const flowNodes = all.filter(el => is(el, 'bpmn:FlowNode') && !el.waypoints);
+    const seqIn = el => el.incoming.filter(c => is(c, 'bpmn:SequenceFlow'));
+    const seqOut = el => el.outgoing.filter(c => is(c, 'bpmn:SequenceFlow'));
+    const label = el => el.businessObject.name ? '«' + el.businessObject.name + '»' : (TYPE_DE[typeName(el)] || typeName(el));
+
+    // per process container (root process, each pool, each sub-process)
+    const containers = new Map();
+    flowNodes.forEach(n => {
+      const p = n.parent; if (!containers.has(p)) containers.set(p, []); containers.get(p).push(n);
+    });
+    containers.forEach((nodes, parent) => {
+      const isEventSub = parent.businessObject && parent.businessObject.triggeredByEvent;
+      const starts = nodes.filter(n => is(n, 'bpmn:StartEvent'));
+      const ends = nodes.filter(n => is(n, 'bpmn:EndEvent'));
+      const where = parent === canvas.getRootElement() ? 'Prozess' : label(parent);
+      if (!starts.length && !isEventSub && nodes.some(n => !is(n, 'bpmn:BoundaryEvent'))) add(parent === canvas.getRootElement() ? nodes[0] : parent, 'warn', `${where}: kein Startereignis`);
+      if (!ends.length && nodes.length > 1) add(parent === canvas.getRootElement() ? nodes[nodes.length - 1] : parent, 'warn', `${where}: kein Endereignis`);
+    });
+
+    flowNodes.forEach(n => {
+      const bo = n.businessObject;
+      const inc = seqIn(n), out = seqOut(n);
+      const isStart = is(n, 'bpmn:StartEvent'), isEnd = is(n, 'bpmn:EndEvent'), isBoundary = is(n, 'bpmn:BoundaryEvent');
+      const inEventSub = n.parent && n.parent.businessObject && n.parent.businessObject.triggeredByEvent;
+      const compensation = bo.isForCompensation;
+      if (isStart && inc.length) add(n, 'error', `${label(n)}: Startereignis darf keinen eingehenden Fluss haben`);
+      if (isEnd && out.length) add(n, 'error', `${label(n)}: Endereignis darf keinen ausgehenden Fluss haben`);
+      if (isBoundary && inc.length) add(n, 'error', `${label(n)}: Randereignis darf keinen eingehenden Fluss haben`);
+      const hasLink = bo.eventDefinitions && bo.eventDefinitions.some(d => d.$type === 'bpmn:LinkEventDefinition');
+      if (!isStart && !isBoundary && !inc.length && !compensation && !hasLink && !(inEventSub && isStart)) add(n, 'error', `${label(n)}: kein eingehender Sequenzfluss`);
+      if (!isEnd && !out.length && !compensation && !hasLink) add(n, 'error', `${label(n)}: kein ausgehender Sequenzfluss`);
+      if (is(n, 'bpmn:Activity') && !bo.name) add(n, 'warn', `${label(n)} ohne Namen`);
+      if (is(n, 'bpmn:Gateway')) {
+        if (inc.length <= 1 && out.length <= 1 && (inc.length + out.length) > 0) add(n, 'warn', `${label(n)}: unnötig (weder Verzweigung noch Zusammenführung)`);
+        if (inc.length > 1 && out.length > 1) add(n, 'warn', `${label(n)}: verzweigt und führt zusammen – besser aufteilen`);
+        if ((is(n, 'bpmn:ExclusiveGateway') || is(n, 'bpmn:InclusiveGateway')) && out.length > 1) {
+          out.forEach(f => {
+            const fb = f.businessObject;
+            if (!fb.name && !fb.conditionExpression && bo.default !== fb) add(f, 'warn', `Ausgang von ${label(n)} ohne Beschriftung/Bedingung`);
+          });
+          if (out.length > 1 && !bo.name) add(n, 'warn', `Verzweigendes ${TYPE_DE[typeName(n)]} ohne Frage als Namen`);
+        }
+        if (is(n, 'bpmn:EventBasedGateway')) {
+          out.forEach(f => {
+            const t = f.target;
+            if (!(is(t, 'bpmn:IntermediateCatchEvent') || is(t, 'bpmn:ReceiveTask'))) add(f, 'error', `Ereignisbasiertes Gateway muss auf Zwischenereignisse/Empfangsaufgaben zeigen`);
+          });
+        }
+      }
+    });
+    const decIds = new Set(allDecisions().map(d => d.id));
+    flowNodes.filter(n => is(n, 'bpmn:BusinessRuleTask')).forEach(n => {
+      const ref = decisionRef(n.businessObject);
+      if (ref && !decIds.has(ref)) add(n, 'error', `${label(n)}: verknüpfte Entscheidung «${ref}» nicht gefunden`);
+    });
+    all.filter(el => is(el, 'bpmn:Participant') && el.businessObject.processRef && !el.businessObject.name).forEach(p => add(p, 'warn', 'Pool ohne Namen'));
+    all.filter(el => is(el, 'bpmn:Lane') && !el.businessObject.name).forEach(l => add(l, 'warn', 'Lane ohne Namen'));
+    return issues;
+  }
+
+  // checks for decision tables; issue.el is the decision (business object)
+  function dmnLint() {
+    const issues = [];
+    const defs = dmnModeler.getDefinitions();
+    if (!defs) return issues;
+    const add = (el, level, msg) => issues.push({ el, level, msg, dmn: true });
+    const text = e => (e && e.text ? String(e.text).trim() : '');
+    // strings in FEEL have to be quoted: "Gold" or "A","B" or not("A")
+    const quotedOk = t => !t || t === '-' || /^(not\s*\()?\s*"[^"]*"(\s*,\s*"[^"]*")*\s*\)?$/.test(t);
+    (defs.drgElement || []).filter(d => d.$type === 'dmn:Decision').forEach(d => {
+      const nm = d.name ? `«${d.name}»` : d.id;
+      if (!d.name) add(d, 'warn', `Entscheidung ${d.id} ohne Namen`);
+      const dt = d.decisionLogic;
+      if (!dt) return add(d, 'warn', `${nm}: keine Entscheidungslogik (Tabelle) hinterlegt`);
+      if (dt.$type !== 'dmn:DecisionTable') return;
+      const inputs = dt.input || [], outputs = dt.output || [], rules = dt.rule || [];
+      inputs.forEach((inp, i) => {
+        if (!text(inp.inputExpression)) add(d, 'warn', `${nm}: Eingabe «${inp.label || i + 1}» ohne Ausdruck/Variable`);
+        if (!inp.label) add(d, 'warn', `${nm}: Eingabe ${i + 1} ohne Bezeichnung`);
+      });
+      outputs.forEach((o, i) => {
+        if (!o.label && !o.name) add(d, 'warn', `${nm}: Ausgabe ${i + 1} ohne Bezeichnung`);
+        if (outputs.length > 1 && !o.name) add(d, 'warn', `${nm}: Ausgabe «${o.label || i + 1}» braucht einen Variablennamen (mehrere Ausgaben)`);
+      });
+      if (!rules.length) add(d, 'warn', `${nm}: Tabelle enthält keine Regeln`);
+      const seen = new Map();
+      rules.forEach((r, k) => {
+        const ins = r.inputEntry || [], outs = r.outputEntry || [];
+        if (outs.length && outs.every(o => !text(o))) add(d, 'error', `${nm}: Regel ${k + 1} hat kein Ergebnis`);
+        ins.forEach((e, i) => {
+          const t = text(e), inp = inputs[i];
+          const type = inp && inp.inputExpression && inp.inputExpression.typeRef;
+          if (type === 'string' && t && !quotedOk(t)) add(d, 'warn', `${nm}: Regel ${k + 1}, «${inp.label || 'Eingabe ' + (i + 1)}»: Text ${t} in Anführungszeichen setzen ("${t.replace(/"/g, '')}")`);
+          if ((type === 'integer' || type === 'long' || type === 'double' || type === 'number') && t && t !== '-' && /^[^\d\[\]\(\)<>=.,\s-]/.test(t) && !/^not\(/.test(t)) add(d, 'warn', `${nm}: Regel ${k + 1}: «${t}» ist keine Zahl/kein Vergleich`);
+        });
+        outs.forEach((e, i) => {
+          const t = text(e), o = outputs[i];
+          if (o && o.typeRef === 'string' && t && !/^".*"$/.test(t)) add(d, 'warn', `${nm}: Regel ${k + 1}, Ergebnis ${t} in Anführungszeichen setzen ("${t.replace(/"/g, '')}")`);
+        });
+        const key = ins.map(e => { const t = text(e); return t === '-' ? '' : t.replace(/\s+/g, ''); }).join('|');
+        if (ins.length) { if (seen.has(key)) seen.get(key).push(k + 1); else seen.set(key, [k + 1]); }
+      });
+      if ((dt.hitPolicy || 'UNIQUE') === 'UNIQUE')
+        seen.forEach(list => { if (list.length > 1) add(d, 'error', `${nm}: Regeln ${list.join(', ')} haben identische Bedingungen – bei Hit Policy U (Unique) nicht erlaubt`); });
+    });
+    return issues;
+  }
+
+  function runLint() {
+    let issues = [];
+    try { issues = mode === 'dmn' ? dmnLint() : lint(); } catch (e) { console.error(e); }
+    lintOverlayIds.forEach(id => overlays.remove(id)); lintOverlayIds = [];
+    if (mode === 'dmn') return renderIssues(issues);
+    const byEl = new Map();
+    issues.forEach(i => { const cur = byEl.get(i.el) || []; cur.push(i); byEl.set(i.el, cur); });
+    byEl.forEach((list, el) => {
+      if (el.waypoints || !registry.get(el.id)) return;
+      const lvl = list.some(i => i.level === 'error') ? 'error' : 'warn';
+      const node = document.createElement('div');
+      node.className = 'lint-mark ' + lvl; node.textContent = '!';
+      node.title = list.map(i => i.msg).join('\n');
+      try { lintOverlayIds.push(overlays.add(el, 'lint', { position: { top: -7, right: 9 }, html: node })); } catch (e) {}
+    });
+    renderIssues(issues);
+  }
+  function renderIssues(issues) {
+    const errs = issues.filter(i => i.level === 'error').length;
+    const badge = $('lintBadge'); badge.textContent = issues.length;
+    badge.className = 'badge' + (errs ? ' err' : issues.length ? ' warn' : '');
+    $('issues').innerHTML = issues.length
+      ? issues.sort((a, b) => (a.level === 'error' ? 0 : 1) - (b.level === 'error' ? 0 : 1))
+          .map((i, k) => `<div class="issue ${i.level}" data-k="${k}"><span class="dot"></span><span>${esc(i.msg)}</span></div>`).join('')
+      : '<div class="ok-msg">✓ Keine Probleme gefunden</div>';
+    $('issues').querySelectorAll('.issue').forEach(n => n.onclick = () => {
+      const issue = issues[+n.dataset.k], el = issue.el;
+      if (issue.dmn) return openDmnView(el.id);
+      if (!registry.get(el.id)) return;
+      selection.select(el);
+      try { canvas.scrollToElement(el, { top: 120, bottom: 120, left: 200, right: 200 }); } catch (e) {}
+    });
+  }
+  $('btnLint').onclick = () => {
+    runLint();
+    setPanel('right', true); setSection('issues', true);
+    $('issues').scrollIntoView({ behavior: 'smooth' });
+  };
+
+  function updateStats() {
+    if (mode === 'dmn') {
+      const defs = dmnModeler.getDefinitions();
+      const decs = defs ? (defs.drgElement || []).filter(e => e.$type === 'dmn:Decision') : [];
+      const rules = decs.reduce((s, d) => s + ((d.decisionLogic && d.decisionLogic.rule) || []).length, 0);
+      $('stats').textContent = `${decs.length} Entscheidung${decs.length === 1 ? '' : 'en'} · ${rules} Regel${rules === 1 ? '' : 'n'}`;
+      return;
+    }
+    const n = registry.filter(el => is(el, 'bpmn:FlowNode') && el.type !== 'label').length;
+    const f = registry.filter(el => is(el, 'bpmn:SequenceFlow')).length;
+    $('stats').textContent = `${n} Elemente · ${f} Sequenzflüsse`;
+  }
+  eventBus.on('import.done', () => setTimeout(updateStats, 0));
+
+  // ---------- Start ----------
+  setPanel('left', ui.left !== undefined ? ui.left : innerWidth >= 1100, false);
+  setPanel('right', false, false); // opens when an element is clicked
+  Object.keys(ui.sections).forEach(n => setSection(n, ui.sections[n], false));
+  if (docs.length && currentDoc()) openDoc(currentId);
+  else if (docs.length) openDoc(docs[0].id);
+  else newDoc('Mein erster Prozess');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Übungsdateien und lokale Einstellungen
+Loesungen/
+*.bpmn
+*.dmn
+.claude/
